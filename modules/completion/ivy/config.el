@@ -68,10 +68,11 @@ immediately runs it on the current candidate (ending the ivy session)."
   (ivy-mode +1)
 
   ;; Show more buffer information in switch-buffer commands
-  (after! ivy-rich
-    (dolist (cmd '(ivy-switch-buffer +ivy/switch-workspace-buffer
-                   counsel-projectile-switch-to-buffer))
-      (ivy-set-display-transformer cmd '+ivy-buffer-transformer)))
+  ;; NOTE: doesn't actually enable ivy-rich!
+  ;;(after! ivy-rich
+  ;;  (dolist (cmd '(ivy-switch-buffer +ivy/switch-workspace-buffer
+  ;;                 counsel-projectile-switch-to-buffer))
+  ;;    (ivy-set-display-transformer cmd '+ivy-buffer-transformer)))
 
   (def-package! ivy-hydra
     :commands (ivy-dispatching-done-hydra ivy--matcher-desc)
@@ -80,6 +81,13 @@ immediately runs it on the current candidate (ending the ivy session)."
       "\C-o"      #'+ivy-coo-hydra/body
       (kbd "M-o") #'ivy-dispatching-done-hydra)))
 
+;; Show more buffer information in switch-buffer commands
+(def-package! ivy-rich
+  :after ivy
+  :config
+  (dolist (cmd '(ivy-switch-buffer +ivy/switch-workspace-buffer
+                                   counsel-projectile-switch-to-buffer))
+    (ivy-set-display-transformer cmd '+ivy-buffer-transformer)))
 
 (def-package! counsel
   :commands counsel-describe-face
@@ -151,7 +159,8 @@ immediately runs it on the current candidate (ending the ivy session)."
 
 
 (def-package! counsel-projectile
-  :disabled t
+  ;; NOTE: counsel-projectile was fixed upstream - doom-emacs commit ddf107a507cf5c0bc2e9a52eef600ad61e63f91e
+  ;;:disabled t
   :commands (counsel-projectile-find-file counsel-projectile-find-dir counsel-projectile-switch-to-buffer
              counsel-projectile-grep counsel-projectile-ag counsel-projectile-switch-project)
   :init
