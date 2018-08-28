@@ -116,125 +116,15 @@ Doom was setup, which can cause problems.")
 
 
 ;;
-;; Emacs core configuration
-;;
-
-;; UTF-8 as the default coding system
-(when (fboundp 'set-charset-priority)
-  (set-charset-priority 'unicode))     ; pretty
-(prefer-coding-system        'utf-8)   ; pretty
-(set-terminal-coding-system  'utf-8)   ; pretty
-(set-keyboard-coding-system  'utf-8)   ; pretty
-(set-selection-coding-system 'utf-8)   ; perdy
-(setq locale-coding-system   'utf-8)   ; please
-(setq-default buffer-file-coding-system 'utf-8) ; with sugar on top
-
-(setq-default
- ad-redefinition-action 'accept   ; silence advised function warnings
- apropos-do-all t                 ; make `apropos' more useful
- auto-mode-case-fold nil
- autoload-compute-prefixes nil
- debug-on-error doom-debug-mode
- ffap-machine-p-known 'reject     ; don't ping things that look like domain names
- idle-update-delay 2              ; update ui less often
- ;; be quiet at startup; don't load or display anything unnecessary
- inhibit-startup-message t
- inhibit-startup-echo-area-message user-login-name
- inhibit-default-init t
- initial-major-mode 'fundamental-mode
- initial-scratch-message nil
- ;; keep the point out of the minibuffer
- minibuffer-prompt-properties '(read-only t point-entered minibuffer-avoid-prompt face minibuffer-prompt)
- ;; History & backup settings (save nothing, that's what git is for)
- auto-save-default nil
- create-lockfiles nil
- history-length 250
- make-backup-files nil  ; don't create backup~ files
- ;; byte compilation
- byte-compile-verbose doom-debug-mode
- byte-compile-warnings '(not free-vars unresolved noruntime lexical make-local)
- ;; security
- gnutls-verify-error (not (getenv "INSECURE")) ; you shouldn't use this
- tls-checktrust gnutls-verify-error
- tls-program (list "gnutls-cli --x509cafile %t -p %p %h"
-                   ;; compatibility fallbacks
-                   "gnutls-cli -p %p %h"
-                   "openssl s_client -connect %h:%p -no_ssl2 -no_ssl3 -ign_eof")
- ;; files
- abbrev-file-name             (concat doom-local-dir "abbrev.el")
- auto-save-list-file-name     (concat doom-cache-dir "autosave")
- backup-directory-alist       (list (cons "." (concat doom-cache-dir "backup/")))
- custom-file                  (concat doom-local-dir "custom.el")
- mc/list-file                 (concat doom-etc-dir "mc-lists.el")
- pcache-directory             (concat doom-cache-dir "pcache/")
- request-storage-directory    (concat doom-cache-dir "request")
- server-auth-dir              (concat doom-cache-dir "server/")
- shared-game-score-directory  (concat doom-etc-dir "shared-game-score/")
- tramp-auto-save-directory    (concat doom-cache-dir "tramp-auto-save/")
- tramp-backup-directory-alist backup-directory-alist
- tramp-persistency-file-name  (concat doom-cache-dir "tramp-persistency.el")
- url-cache-directory          (concat doom-cache-dir "url/")
- url-configuration-directory  (concat doom-etc-dir "url/")
- gamegrid-user-score-file-directory (concat doom-etc-dir "games/"))
-
-(defvar doom-auto-minor-mode-alist '()
-  "Alist mapping filename patterns to corresponding minor mode functions, like
-`auto-mode-alist'. All elements of this alist are checked, meaning you can
-enable multiple minor modes for the same regexp.")
-
-(defun doom|enable-minor-mode-maybe ()
-  "Check file name against `doom-auto-minor-mode-alist'."
-  (when buffer-file-name
-    (let ((name buffer-file-name)
-          (remote-id (file-remote-p buffer-file-name))
-          (alist doom-auto-minor-mode-alist))
-      ;; Remove backup-suffixes from file name.
-      (setq name (file-name-sans-versions name))
-      ;; Remove remote file name identification.
-      (when (and (stringp remote-id)
-                 (string-match (regexp-quote remote-id) name))
-        (setq name (substring name (match-end 0))))
-      (while (and alist (caar alist) (cdar alist))
-        (if (string-match-p (caar alist) name)
-            (funcall (cdar alist) 1))
-        (setq alist (cdr alist))))))
-(add-hook 'find-file-hook #'doom|enable-minor-mode-maybe)
-
-(defun doom*set-indirect-buffer-filename (orig-fn base-buffer name &optional clone)
-  "In indirect buffers, `buffer-file-name' is nil, which can cause problems
-with functions that require it (like modeline segments)."
-  (let ((file-name (buffer-file-name base-buffer))
-        (buffer (funcall orig-fn base-buffer name clone)))
-    (when (and file-name buffer)
-      (with-current-buffer buffer
-        (unless buffer-file-name
-          (setq buffer-file-name file-name
-                buffer-file-truename (file-truename file-name)))))
-    buffer))
-(advice-add #'make-indirect-buffer :around #'doom*set-indirect-buffer-filename)
-
-(defun doom*symbol-file (orig-fn symbol &optional type)
-  "If a `doom-file' symbol property exists on SYMBOL, use that instead of the
-original value of `symbol-file'."
-  (or (if (symbolp symbol) (get symbol 'doom-file))
-      (funcall orig-fn symbol type)))
-(advice-add #'symbol-file :around #'doom*symbol-file)
-
-;; Truly silence startup message
-(fset #'display-startup-echo-area-message #'ignore)
-
-
-;;
 ;; Custom hooks
 ;;
-
 
 (defvar doom-init-hook nil
   "Hooks run after all init.el files are loaded, including your private and all
 module init.el files, but before their config.el files are loaded.")
 
 (defvar doom-post-init-hook nil
-  "A list of hooks run when Doom is fully initialized. Fires at the end of
+  "A list of hooks run when Doom is fully initialized. Fires near the end of
 `emacs-startup-hook', as late as possible. Guaranteed to run after everything
 else (except for `window-setup-hook').")
 
@@ -306,13 +196,120 @@ and `doom-exit-window-hook'."
     (if disable
         (advice-remove (car spec) (cdr spec))
       (advice-add (car spec) :around (cdr spec)))))
-(add-hook 'emacs-startup-hook #'doom|init-switch-hooks)
 
 (defun doom*load-theme-hooks (theme &rest _)
   "Set up `doom-load-theme-hook' to run after `load-theme' is called."
   (setq doom-theme theme)
   (run-hooks 'doom-load-theme-hook))
 (advice-add #'load-theme :after #'doom*load-theme-hooks)
+
+
+;;
+;; Emacs core configuration
+;;
+
+;; UTF-8 as the default coding system
+(when (fboundp 'set-charset-priority)
+  (set-charset-priority 'unicode))     ; pretty
+(prefer-coding-system        'utf-8)   ; pretty
+(set-terminal-coding-system  'utf-8)   ; pretty
+(set-keyboard-coding-system  'utf-8)   ; pretty
+(set-selection-coding-system 'utf-8)   ; perdy
+(setq locale-coding-system   'utf-8)   ; please
+(setq-default buffer-file-coding-system 'utf-8) ; with sugar on top
+
+(setq-default
+ ad-redefinition-action 'accept   ; silence advised function warnings
+ apropos-do-all t                 ; make `apropos' more useful
+ auto-mode-case-fold nil
+ autoload-compute-prefixes nil
+ debug-on-error doom-debug-mode
+ ffap-machine-p-known 'reject     ; don't ping things that look like domain names
+ idle-update-delay 2              ; update ui less often
+ ;; be quiet at startup; don't load or display anything unnecessary
+ inhibit-startup-message t
+ inhibit-startup-echo-area-message user-login-name
+ inhibit-default-init t
+ initial-major-mode 'fundamental-mode
+ initial-scratch-message nil
+ ;; keep the point out of the minibuffer
+ minibuffer-prompt-properties '(read-only t point-entered minibuffer-avoid-prompt face minibuffer-prompt)
+ ;; History & backup settings (save nothing, that's what git is for)
+ auto-save-default nil
+ create-lockfiles nil
+ history-length 250
+ make-backup-files nil  ; don't create backup~ files
+ ;; byte compilation
+ byte-compile-verbose doom-debug-mode
+ byte-compile-warnings '(not free-vars unresolved noruntime lexical make-local)
+ ;; security
+ gnutls-verify-error (not (getenv "INSECURE")) ; you shouldn't use this
+ tls-checktrust gnutls-verify-error
+ tls-program (list "gnutls-cli --x509cafile %t -p %p %h"
+                   ;; compatibility fallbacks
+                   "gnutls-cli -p %p %h"
+                   "openssl s_client -connect %h:%p -no_ssl2 -no_ssl3 -ign_eof")
+ ;; files
+ abbrev-file-name             (concat doom-local-dir "abbrev.el")
+ auto-save-list-file-name     (concat doom-cache-dir "autosave")
+ backup-directory-alist       (list (cons "." (concat doom-cache-dir "backup/")))
+ mc/list-file                 (concat doom-etc-dir "mc-lists.el")
+ pcache-directory             (concat doom-cache-dir "pcache/")
+ request-storage-directory    (concat doom-cache-dir "request")
+ server-auth-dir              (concat doom-cache-dir "server/")
+ shared-game-score-directory  (concat doom-etc-dir "shared-game-score/")
+ tramp-auto-save-directory    (concat doom-cache-dir "tramp-auto-save/")
+ tramp-backup-directory-alist backup-directory-alist
+ tramp-persistency-file-name  (concat doom-cache-dir "tramp-persistency.el")
+ url-cache-directory          (concat doom-cache-dir "url/")
+ url-configuration-directory  (concat doom-etc-dir "url/")
+ gamegrid-user-score-file-directory (concat doom-etc-dir "games/"))
+
+(defvar doom-auto-minor-mode-alist '()
+  "Alist mapping filename patterns to corresponding minor mode functions, like
+`auto-mode-alist'. All elements of this alist are checked, meaning you can
+enable multiple minor modes for the same regexp.")
+
+(defun doom|enable-minor-mode-maybe ()
+  "Check file name against `doom-auto-minor-mode-alist'."
+  (when buffer-file-name
+    (let ((name buffer-file-name)
+          (remote-id (file-remote-p buffer-file-name))
+          (alist doom-auto-minor-mode-alist))
+      ;; Remove backup-suffixes from file name.
+      (setq name (file-name-sans-versions name))
+      ;; Remove remote file name identification.
+      (when (and (stringp remote-id)
+                 (string-match (regexp-quote remote-id) name))
+        (setq name (substring name (match-end 0))))
+      (while (and alist (caar alist) (cdar alist))
+        (if (string-match-p (caar alist) name)
+            (funcall (cdar alist) 1))
+        (setq alist (cdr alist))))))
+(add-hook 'find-file-hook #'doom|enable-minor-mode-maybe)
+
+(defun doom*set-indirect-buffer-filename (orig-fn base-buffer name &optional clone)
+  "In indirect buffers, `buffer-file-name' is nil, which can cause problems
+with functions that require it (like modeline segments)."
+  (let ((file-name (buffer-file-name base-buffer))
+        (buffer (funcall orig-fn base-buffer name clone)))
+    (when (and file-name buffer)
+      (with-current-buffer buffer
+        (unless buffer-file-name
+          (setq buffer-file-name file-name
+                buffer-file-truename (file-truename file-name)))))
+    buffer))
+(advice-add #'make-indirect-buffer :around #'doom*set-indirect-buffer-filename)
+
+(defun doom*symbol-file (orig-fn symbol &optional type)
+  "If a `doom-file' symbol property exists on SYMBOL, use that instead of the
+original value of `symbol-file'."
+  (or (if (symbolp symbol) (get symbol 'doom-file))
+      (funcall orig-fn symbol type)))
+(advice-add #'symbol-file :around #'doom*symbol-file)
+
+;; Truly silence startup message
+(fset #'display-startup-echo-area-message #'ignore)
 
 
 ;;
@@ -449,7 +446,8 @@ to least)."
 
   (require 'core-os)
   (when (or force-load-core-p (not noninteractive))
-    (add-hook 'emacs-startup-hook #'doom|display-benchmark)
+    (add-hook! 'emacs-startup-hook
+      #'(doom|init-switch-hooks doom|display-benchmark))
 
     (require 'core-ui)
     (require 'core-editor)
@@ -473,7 +471,6 @@ in interactive sessions, nil otherwise (but logs a warning)."
 
 (add-to-list 'load-path doom-core-dir)
 
-(load custom-file t t t)
 (require 'core-lib)
 (require 'core-modules)
 (when noninteractive

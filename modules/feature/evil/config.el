@@ -3,6 +3,10 @@
 ;; I'm a vimmer at heart. Its modal philosophy suits me better, and this module
 ;; strives to make Emacs a much better vim than vim was.
 
+(defvar +evil-want-o/O-to-continue-comments t
+  "If non-nil, the o/O keys will continue comment lines if the point is on a
+line with a linewise comment.")
+
 ;; Set these defaults before `evil'; use `defvar' so they can be changed prior
 ;; to loading.
 (defvar evil-want-C-u-scroll t)
@@ -121,6 +125,69 @@
       (apply orig-fn args)))
   (advice-add #'counsel-git-grep-action :around #'+evil*set-jump)
   (advice-add #'helm-ag--find-file-action :around #'+evil*set-jump)
+
+  ;; In evil, registers 2-9 are buffer-local. In vim, they're global, so...
+  (defun +evil*make-numbered-markers-global (orig-fn char)
+    (or (and (>= char ?2) (<= char ?9))
+        (funcall orig-fn char)))
+  (advice-add #'evil-global-marker-p :around #'+evil*make-numbered-markers-global)
+
+  ;; Make o/O continue comments
+  (defun +evil*insert-newline-above-and-respect-comments (orig-fn count)
+    (cl-letf* ((old-insert-newline-above (symbol-function 'evil-insert-newline-above))
+               ((symbol-function 'evil-insert-newline-above)
+                (lambda ()
+                  (if (or (not +evil-want-o/O-to-continue-comments)
+                          (evil-insert-state-p))
+                      (funcall old-insert-newline-above)
+                    (let ((pos (save-excursion (beginning-of-line-text) (point))))
+                      (evil-narrow-to-field
+                        (if (save-excursion (nth 4 (syntax-ppss pos)))
+                            (evil-save-goal-column
+                              (setq evil-auto-indent nil)
+                              (goto-char pos)
+                              (let ((ws (abs (skip-chars-backward " \t"))))
+                                ;; FIXME oh god why
+                                (save-excursion
+                                  (if comment-line-break-function
+                                      (funcall comment-line-break-function)
+                                    (comment-indent-new-line))
+                                  (when (and (derived-mode-p 'c-mode 'c++-mode 'objc-mode 'java-mode 'js2-mode)
+                                             (eq (char-after) ?/))
+                                    (insert "*"))
+                                  (insert
+                                   (make-string (max 0 (+ ws (skip-chars-backward " \t")))
+                                                32)))
+                                (insert (make-string (max 1 ws) 32))))
+                          (evil-move-beginning-of-line)
+                          (insert (if use-hard-newlines hard-newline "\n"))
+                          (forward-line -1)
+                          (back-to-indentation))))))))
+      (let ((evil-auto-indent evil-auto-indent))
+        (funcall orig-fn count))))
+  (advice-add #'evil-open-above :around #'+evil*insert-newline-above-and-respect-comments)
+
+  (defun +evil*insert-newline-below-and-respect-comments (orig-fn count)
+    (cl-letf* ((old-insert-newline-below (symbol-function 'evil-insert-newline-below))
+               ((symbol-function 'evil-insert-newline-below)
+                (lambda ()
+                  (if (or (not +evil-want-o/O-to-continue-comments)
+                          (evil-insert-state-p))
+                      (funcall old-insert-newline-below)
+                    (let ((pos (save-excursion (beginning-of-line-text) (point))))
+                      (evil-narrow-to-field
+                        (evil-move-end-of-line)
+                        (cond ((sp-point-in-comment pos)
+                               (setq evil-auto-indent nil)
+                               (if comment-line-break-function
+                                   (funcall comment-line-break-function)
+                                 (comment-indent-new-line)))
+                              (t
+                               (insert (if use-hard-newlines hard-newline "\n"))
+                               (back-to-indentation)))))))))
+      (let ((evil-auto-indent evil-auto-indent))
+        (funcall orig-fn count))))
+  (advice-add #'evil-open-below :around #'+evil*insert-newline-below-and-respect-comments)
 
   ;; --- custom interactive codes -----------
   ;; These arg types will highlight matches in the current buffer

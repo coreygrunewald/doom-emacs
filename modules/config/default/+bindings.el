@@ -75,6 +75,8 @@
       :en "C-l"   #'evil-window-right
 
       "C-x p"     #'+popup/other
+      (:when IS-MAC
+        "\M-`"    #'other-frame)
 
 
       ;; --- Personal vim-esque bindings ------------------
@@ -92,6 +94,7 @@
       :m  "gd" #'+lookup/definition
       :m  "gD" #'+lookup/references
       :n  "gf" #'+lookup/file
+      :n  "gQ" #'+format:region
       :n  "gp" #'+evil/reselect-paste
       :v  "gp" #'+evil/paste-preserve-register
       :n  "gr" #'+eval:region
@@ -343,27 +346,45 @@
       ;; helm
       (:after helm
         (:map helm-map
-          "ESC"        nil
-          "C-S-n"      #'helm-next-source
-          "C-S-p"      #'helm-previous-source
-          "C-u"        #'helm-delete-minibuffer-contents
-          "C-w"        #'backward-kill-word
-          "C-r"        #'evil-paste-from-register ; Evil registers in helm! Glorious!
-          "C-s"        #'helm-minibuffer-history
-          "C-b"        #'backward-word
-          [left]       #'backward-char
-          [right]      #'forward-char
-          [escape]     #'helm-keyboard-quit
-          [tab]        #'helm-execute-persistent-action)
+          [left]     #'left-char
+          [right]    #'right-char
+          "C-S-n"    #'helm-next-source
+          "C-S-p"    #'helm-previous-source
+          "C-j"      #'helm-next-line
+          "C-k"      #'helm-previous-line
+          "C-S-j"    #'helm-next-source
+          "C-S-k"    #'helm-previous-source
+          "C-f"      #'helm-next-page
+          "C-S-f"    #'helm-previous-page
+          "C-u"      #'helm-delete-minibuffer-contents
+          "C-w"      #'backward-kill-word
+          "C-r"      #'evil-paste-from-register ; Evil registers in helm! Glorious!
+          "C-s"      #'helm-minibuffer-history
+          "C-b"      #'backward-word
+          ;; Swap TAB and C-z
+          [tab]      #'helm-execute-persistent-action
+          "C-z"      #'helm-select-action)
         (:after helm-files
-          (:map helm-generic-files-map
-            :e [escape] #'helm-keyboard-quit)
-          (:map helm-find-files-map
-            "C-w" #'helm-find-files-up-one-level
-            [tab] #'helm-execute-persistent-action))
+          :map (helm-find-files-map helm-read-file-map)
+          [M-return] #'helm-ff-run-switch-other-window
+          "C-w"      #'helm-find-files-up-one-level)
         (:after helm-ag
-          (:map helm-ag-map
-            [backtab]  #'helm-ag-edit)))
+          :map helm-ag-map
+          [backtab]  #'helm-ag-edit
+          [left] nil
+          [right] nil)
+        (:after helm-locate
+          :map helm-generic-files-map
+          [M-return] #'helm-ff-run-switch-other-window)
+        (:after helm-buffers
+          :map helm-buffer-map
+          [M-return] #'helm-buffer-switch-other-window)
+        (:after helm-regexp
+          :map helm-moccur-map
+          [M-return] #'helm-moccur-run-goto-line-ow)
+        (:after helm-grep
+          :map helm-grep-map
+          [M-return] #'helm-grep-run-other-window-action))
 
       ;; hl-todo
       :m  "]t" #'hl-todo-next
@@ -579,6 +600,8 @@
         :desc "Evaluate buffer/region"    :n  "e" #'+eval/buffer
                                           :v  "e" #'+eval/region
         :desc "Evaluate & replace region" :nv "E" #'+eval:replace-region
+        :desc "Format buffer/region"      :n  "f" #'+format/buffer
+                                          :v  "f" #'+format/region
         :desc "Build tasks"               :nv "b" #'+eval/build
         :desc "Jump to definition"        :n  "d" #'+lookup/definition
         :desc "Jump to references"        :n  "D" #'+lookup/references

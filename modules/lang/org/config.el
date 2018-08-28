@@ -154,7 +154,6 @@ unfold to point on startup."
   (setq-default
    org-adapt-indentation nil
    org-cycle-include-plain-lists t
-   org-cycle-separator-lines 1
    org-eldoc-breadcrumb-separator " → "
    org-entities-user
    '(("flat"  "\\flat" nil "" "" "266D" "♭")
@@ -186,7 +185,6 @@ unfold to point on startup."
      (sequence "TODO(T)" "|" "DONE(D)")
      (sequence "NEXT(n)" "ACTIVE(a)" "WAITING(w)" "LATER(l)" "|" "CANCELLED(c)"))
    org-use-sub-superscripts '{}
-   outline-blank-line t
 
    ;; Scale up LaTeX previews a bit (default is too small)
    org-preview-latex-image-directory (concat doom-cache-dir "org-latex/")

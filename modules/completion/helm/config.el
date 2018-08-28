@@ -43,6 +43,7 @@ be negative.")
   :init
   (define-key! 'global
     [remap apropos]                   #'helm-apropos
+    [remap find-library]              #'helm-locate-library
     [remap bookmark-jump]             #'helm-bookmarks
     [remap execute-extended-command]  #'helm-M-x
     [remap find-file]                 #'helm-find-files
@@ -58,13 +59,13 @@ be negative.")
     [remap recentf-open-files]        #'helm-recentf)
   :config
   (helm-mode +1)
-  ;; helm is too heavy for find-file-at-point
+  ;; helm is too heavy for `find-file-at-point'
   (add-to-list 'helm-completing-read-handlers-alist (cons #'find-file-at-point nil)))
 
 
 (def-package! helm
   :after helm-mode
-  :init
+  :preface
   (setq helm-candidate-number-limit 50
         ;; Remove extraineous helm UI elements
         helm-display-header-line nil
@@ -78,28 +79,35 @@ be negative.")
         helm-display-buffer-default-height 0.25
         ;; When calling `helm-semantic-or-imenu', don't immediately jump to
         ;; symbol at point
-        helm-imenu-execute-action-at-once-if-one nil)
+        helm-imenu-execute-action-at-once-if-one nil
+        ;; disable special behavior for left/right, M-left/right keys.
+        helm-ff-lynx-style-map nil)
 
+  (when (featurep! :feature evil +everywhere)
+    (setq helm-default-prompt-display-function #'+helm--set-prompt-display))
+
+  :init
   (when (and EMACS26+ (featurep! +childframe))
     (setq helm-display-function #'+helm-posframe-display)
     ;; Fix "Specified window is not displaying the current buffer" error
     (advice-add #'posframe--get-font-height :around #'+helm*fix-get-font-height))
 
   (let ((fuzzy (featurep! +fuzzy)))
-    (setq helm-mode-fuzzy-match fuzzy
-          helm-completion-in-region-fuzzy-match fuzzy
-          helm-M-x-fuzzy-match fuzzy
+    (setq helm-M-x-fuzzy-match fuzzy
           helm-ag-fuzzy-match fuzzy
+          helm-apropos-fuzzy-match fuzzy
           helm-apropos-fuzzy-match fuzzy
           helm-bookmark-show-location fuzzy
           helm-buffers-fuzzy-matching fuzzy
           helm-completion-in-region-fuzzy-match fuzzy
+          helm-completion-in-region-fuzzy-match fuzzy
+          helm-ff-fuzzy-matching fuzzy
           helm-file-cache-fuzzy-match fuzzy
           helm-flx-for-helm-locate fuzzy
           helm-imenu-fuzzy-match fuzzy
-          helm-apropos-fuzzy-match fuzzy
           helm-lisp-fuzzy-completion fuzzy
           helm-locate-fuzzy-match fuzzy
+          helm-mode-fuzzy-match fuzzy
           helm-projectile-fuzzy-match fuzzy
           helm-recentf-fuzzy-match fuzzy
           helm-semantic-fuzzy-match fuzzy))
@@ -200,37 +208,3 @@ be negative.")
 (setq swiper-helm-display-function
       (lambda (buf &optional _resume) (pop-to-buffer buf)))
 
-
-;;
-;; Evil integration
-;;
-
-(when (featurep! :feature evil +everywhere)
-  (setq helm-default-prompt-display-function #'+helm--set-prompt-display)
-
-  (map! (:after helm
-          :map helm-map
-          "C-S-p" #'helm-previous-source
-          "C-S-n" #'helm-next-source
-          "C-l" #'helm-execute-persistent-action
-          "C-j" #'helm-next-line
-          "C-k" #'helm-previous-line
-          "C-f" #'helm-next-page
-          "C-u" #'helm-previous-page
-          [tab] #'helm-select-action)
-        (:after helm-files
-          :map (helm-find-files-map helm-read-file-map)
-          [M-return] #'helm-ff-run-switch-other-window
-          "M-h" #'helm-find-files-up-one-level)
-        (:after helm-locate
-          :map helm-generic-files-map
-          "S-<return>" #'helm-ff-run-switch-other-window)
-        (:after helm-buffers
-          :map helm-buffer-map
-          [M-return] #'helm-buffer-switch-other-window)
-        (:after helm-regexp
-          :map helm-moccur-map
-          [M-return] #'helm-moccur-run-goto-line-ow)
-        (:after helm-grep
-          :map helm-grep-map
-          [M-return] #'helm-grep-run-other-window-action)))

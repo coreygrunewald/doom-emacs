@@ -97,6 +97,12 @@ and enables `+popup-buffer-mode'."
 (defun +popup--normalize-alist (alist)
   "Merge `+popup-default-alist' and `+popup-default-parameters' with ALIST."
   (when alist
+    ;; In case ALIST is window state (from `window-state-get'), we map its
+    ;; entries to display-buffer alist parameters.
+    (dolist (prop +popup-window-state-alist)
+      (when-let* ((val (assq (car prop) alist)))
+        (setf (alist-get (cdr prop) alist) (cdr val))
+        (setq alist (delq val alist))))
     (let ((alist  ; handle defaults
            (cl-remove-duplicates
             (append alist +popup-default-alist)
@@ -280,6 +286,18 @@ Any non-nil value besides the above will be used as the raw value for
 (defalias 'other-popup #'+popup/other)
 
 ;;;###autoload
+(defun +popup/buffer ()
+  "Open this buffer in a popup window."
+  (interactive)
+  (let ((+popup-default-display-buffer-actions
+         '(+popup-display-buffer-stacked-side-window))
+        (display-buffer-alist +popup--display-buffer-alist)
+        (buffer (current-buffer)))
+    (push (+popup--make "." +popup-defaults) display-buffer-alist)
+    (bury-buffer)
+    (pop-to-buffer buffer)))
+
+;;;###autoload
 (defun +popup/other ()
   "Cycle through popup windows, like `other-window'. Ignores regular windows."
   (interactive)
@@ -347,9 +365,8 @@ the message buffer in a popup window."
   (unless +popup--last
     (error "No popups to restore"))
   (cl-loop for (buffer . state) in +popup--last
-           if (and (buffer-live-p buffer)
-                   (display-buffer buffer))
-           do (window-state-put state it))
+           if (buffer-live-p buffer)
+           do (+popup-buffer buffer state))
   (setq +popup--last nil)
   t)
 

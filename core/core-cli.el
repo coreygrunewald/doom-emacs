@@ -193,16 +193,29 @@ recompile. Run this whenever you:
 (dispatcher! (patch-macos) (doom-patch-macos args)
   "Patches Emacs.app to respect your shell environment.
 
-This searches for Emacs.app in /Applications and ~/Applications, then moves
-Contents/MacOS/Emacs to Contents/MacOS/RunEmacs, and replaces the former with
-the following wrapper script:
+A common issue with GUI Emacs on MacOS is that it launches in an environment
+independent of your shell configuration, including your PATH and any other
+utilities like rbenv, rvm or virtualenv.
 
-  #!/usr/bin/env bash
-  args=\"$@\"
-  pwd=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\"; pwd -P)\"
-  exec \"$SHELL\" -c \"$pwd/RunEmacs $args\"
+This patch fixes this by patching Emacs.app (in /Applications or
+~/Applications). It will:
 
-This ensures that Emacs is always aware of your shell environment.")
+  1. Move Contents/MacOS/Emacs to Contents/MacOS/RunEmacs
+  2. And replace Contents/MacOS/Emacs with the following wrapper script:
+
+     #!/usr/bin/env bash
+     args=\"$@\"
+     pwd=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\"; pwd -P)\"
+     exec \"$SHELL\" -c \"$pwd/RunEmacs $args\"
+
+This ensures that Emacs is always aware of your shell environment, regardless of
+how it is launched.
+
+It can be undone with the --undo or -u options.
+
+Alternatively, you can install the exec-path-from-shell Emacs plugin, which will
+scrape your shell environment remotely, at startup. However, this can be slow
+depending on your shell configuration and isn't always reliable.")
 
 
 ;;
@@ -317,8 +330,29 @@ packages and regenerates the autoloads file."
         (print! "Deploying empty config.el file in %s" short-private-dir)
         (with-temp-file config-file (insert ""))
         (print! (green "Done!")))))
+  ;; Ask if Emacs.app should be patched
+  (condition-case e
+      (when IS-MAC
+        (message "MacOS detected")
+        (let ((appdir (cl-find-if #'file-directory-p
+                                  (list "/Applications/Emacs.app"
+                                        "~/Applications/Emacs.app"))))
+          (unless appdir
+            (user-error "Couldn't find Emacs.app in /Applications or ~/Applications"))
+          (when (file-exists-p! "Contents/MacOS/RunEmacs" appdir)
+            (user-error "Emacs.app is already patched"))
+          (unless (or doom-auto-accept
+                      (y-or-n-p
+                       (concat "Doom would like to patch your Emacs.app bundle so that it respects\n"
+                               "your shell configuration. For more information on why and how, run\n\n"
+                               "  bin/doom help patch-macos\n\n"
+                               "Patch Emacs.app?")))
+            (user-error "Will not patch Emacs.app"))
+          (doom-patch-macos nil)))
+    (user-error (message "%s" (error-message-string e))))
+  ;; Install Doom packages
   (print! "Installing plugins")
-  (doom-packages-install)
+  (doom-packages-install doom-auto-accept)
   (print! "Regenerating autoloads files")
   (doom-reload-autoloads nil 'force-p)
   (print! (bold (green "\nFinished! Doom is ready to go!\n")))
@@ -352,11 +386,9 @@ packages and regenerates the autoloads file."
              (user-error "%s is already patched" appdir))
 
             ((or doom-auto-accept
-                 (progn
-                   (print! "/Applications/Emacs.app needs to be patched.")
-                   (print! "\nWhy? So that Emacs will respect your shell configuration when not launched from the shell.")
-                   (print! "\nHow? By replacing Emacs.app/Contents/MacOS/Emacs with a wrapper that launches Emacs from your shell.")
-                   (y-or-n-p "Patch Emacs.app?")))
+                 (y-or-n-p (concat "/Applications/Emacs.app needs to be patched. See `bin/doom help patch-macos' for why and how.\n\n"
+                                   "Patch Emacs.app?")))
+             (message "Patching '%s'" appdir)
              (copy-file oldbin newbin nil nil nil 'preserve-permissions)
              (unless (file-exists-p newbin)
                (error "Failed to copy %s to %s" oldbin newbin))

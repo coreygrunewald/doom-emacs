@@ -28,7 +28,6 @@
   :commands js2-line-break
   :config
   (setq js2-skip-preprocessor-directives t
-        js2-highlight-external-variables nil
         js-chain-indent t
         ;; let flycheck handle this
         js2-mode-show-parse-errors nil
@@ -36,7 +35,10 @@
         ;; Flycheck provides these features, so disable them: conflicting with
         ;; the eslint settings.
         js2-strict-trailing-comma-warning nil
-        js2-strict-missing-semi-warning nil)
+        js2-strict-missing-semi-warning nil
+        ;; maximum fontification
+        js2-highlight-level 3
+        js2-highlight-external-variables t)
 
   (add-hook 'js2-mode-hook #'rainbow-delimiters-mode)
   ;; Indent switch-case another step
@@ -232,10 +234,6 @@
         :n "se" #'skewer-html-eval-tag))
 
 
-;; `web-beautify'
-(map! :map* (json-mode-map js2-mode-map) :n "gQ" #'web-beautify-js)
-
-
 ;;
 ;; Projects
 ;;
@@ -250,7 +248,7 @@
   :files ("gulpfile.js"))
 
 (def-project-mode! +javascript-npm-mode
-  :modes (html-mode css-mode web-mode js2-mode markdown-mode)
+  :modes (html-mode css-mode web-mode js2-mode json-mode markdown-mode)
   :files ("package.json")
   :add-hooks (+javascript|add-node-modules-path))
 
