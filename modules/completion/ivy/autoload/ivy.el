@@ -41,18 +41,18 @@ started `counsel-recentf' from. Also uses `abbreviate-file-name'."
       (propertize str 'face 'ivy-virtual))))
 
 ;;;###autoload
-(defun +ivy-buffer-transformer (str)
-  "Dim special buffers, buffers whose file aren't in the current buffer, and
-virtual buffers. Uses `ivy-rich' under the hood."
-  (let ((buf (get-buffer str)))
-    (require 'ivy-rich)
-    (cond (buf (ivy-rich-switch-buffer-transformer str))
-          ((and (eq ivy-virtual-abbreviate 'full)
-                ivy-rich-switch-buffer-align-virtual-buffer)
-           (ivy-rich-switch-buffer-virtual-buffer str))
-          ((eq ivy-virtual-abbreviate 'full)
-           (propertize (abbreviate-file-name str) 'str 'ivy-virtual))
-          (t (propertize str 'face 'ivy-virtual)))))
+;;(defun +ivy-buffer-transformer (str)
+;;  "Dim special buffers, buffers whose file aren't in the current buffer, and
+;;virtual buffers. Uses `ivy-rich' under the hood."
+;;  (let ((buf (get-buffer str)))
+;;    (require 'ivy-rich)
+;;    (cond (buf (ivy-rich-switch-buffer-transformer str))
+;;          ((and (eq ivy-virtual-abbreviate 'full)
+;;                ivy-rich-switch-buffer-align-virtual-buffer)
+;;           (ivy-rich-switch-buffer-virtual-buffer str))
+;;          ((eq ivy-virtual-abbreviate 'full)
+;;           (propertize (abbreviate-file-name str) 'str 'ivy-virtual))
+;;          (t (propertize str 'face 'ivy-virtual)))))
 
 ;;;###autoload
 (defun +ivy/switch-workspace-buffer (&optional arg)
