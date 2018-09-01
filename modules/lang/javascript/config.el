@@ -1,5 +1,14 @@
 ;;; lang/javascript/config.el -*- lexical-binding: t; -*-
 
+(defvar +javascript-docsets
+  '("JavaScript"
+    "AngularJS" "Backbone" "BackboneJS" "Bootstrap" "D3JS" "EmberJS" "Express"
+    "ExtJS" "JQuery" "JQuery_Mobile" "JQuery_UI" "KnockoutJS" "Lo-Dash"
+    "MarionetteJS" "MomentJS" "NodeJS" "PrototypeJS" "React" "RequireJS"
+    "SailsJS" "UnderscoreJS" "VueJS" "ZeptoJS")
+  "A list of dash docsets to use for Javascript modes (`js2-mode' and
+`rjsx-mode'). These are used by `+lookup/in-docsets'.")
+
 (after! (:any js2-mode web-mode)
   (set-pretty-symbols! '(js2-mode web-mode)
     ;; Functional
@@ -46,6 +55,7 @@
 
   (set-electric! 'js2-mode :chars '(?\} ?\) ?. ?:))
   (set-repl-handler! 'js2-mode #'+javascript/repl)
+  (set-docsets! 'js2-mode +javascript-docsets)
 
   (map! :map js2-mode-map
         :localleader
@@ -66,14 +76,16 @@
   (add-to-list 'magic-mode-alist '(+javascript-jsx-file-p . rjsx-mode))
   :config
   (set-electric! 'rjsx-mode :chars '(?\} ?\) ?. ?>))
-  (add-hook! 'rjsx-mode-hook
-    ;; jshint doesn't know how to deal with jsx
-    (push 'javascript-jshint flycheck-disabled-checkers))
+  (set-docsets! 'rjsx-mode +javascript-docsets)
+  (when (featurep! :feature syntax-checker)
+    (add-hook! 'rjsx-mode-hook
+      ;; jshint doesn't know how to deal with jsx
+      (push 'javascript-jshint flycheck-disabled-checkers)))
 
   ;; `rjsx-electric-gt' relies on js2's parser to tell it when the cursor is in
   ;; a self-closing tag, so that it can insert a matching ending tag at point.
   ;; However, the parser doesn't run immediately, so a fast typist can outrun
-  ;; it, causing tags to stay unclosed, so force it to parse.
+  ;; it, causing tags to stay unclosed, so we force it to parse.
   (defun +javascript|reparse (n)
     ;; if n != 1, rjsx-electric-gt calls rjsx-maybe-reparse itself
     (if (= n 1) (rjsx-maybe-reparse)))
@@ -86,6 +98,7 @@
     comment-line-break-function #'js2-line-break)
   (set-electric! 'typescript-mode
     :chars '(?\} ?\)) :words '("||" "&&"))
+  (set-docsets! 'typescript-mode "TypeScript" "AngularTS")
   (set-pretty-symbols! 'typescript-mode
     ;; Functional
     :def "function"
@@ -106,6 +119,8 @@
 
 ;; `coffee-mode'
 (setq coffee-indent-like-python-mode t)
+(after! coffee-mode
+  (set-docsets! 'coffee-mode "CoffeeScript"))
 
 
 ;;
@@ -233,22 +248,33 @@
         :localleader
         :n "se" #'skewer-html-eval-tag))
 
+;; `npm-mode'
+(map! (:after npm-mode
+       :map npm-mode-keymap
+       :localleader
+       :n "nn" #'npm-mode-npm-init
+       :n "ni" #'npm-mode-npm-install
+       :n "ns" #'npm-mode-npm-install-save
+       :n "nd" #'npm-mode-npm-install-save-dev
+       :n "nu" #'npm-mode-npm-uninstall
+       :n "nl" #'npm-mode-npm-list
+       :n "nr" #'npm-mode-npm-run
+       :n "nv" #'npm-mode-visit-project-file))
 
 ;;
 ;; Projects
 ;;
+
+(def-project-mode! +javascript-npm-mode
+  :modes (html-mode css-mode web-mode js2-mode rjsx-mode json-mode markdown-mode)
+  :when (locate-dominating-file default-directory "package.json")
+  :add-hooks (+javascript|add-node-modules-path npm-mode))
+
+(def-project-mode! +javascript-gulp-mode
+  :when (locate-dominating-file default-directory "gulpfile.js"))
 
 (def-project-mode! +javascript-screeps-mode
   :match "/screeps\\(?:-ai\\)?/.+$"
   :modes (+javascript-npm-mode)
   :add-hooks (+javascript|init-screeps-mode)
   :on-load (load! "+screeps"))
-
-(def-project-mode! +javascript-gulp-mode
-  :files ("gulpfile.js"))
-
-(def-project-mode! +javascript-npm-mode
-  :modes (html-mode css-mode web-mode js2-mode rjsx-mode json-mode markdown-mode)
-  :files ("package.json")
-  :add-hooks (+javascript|add-node-modules-path))
-

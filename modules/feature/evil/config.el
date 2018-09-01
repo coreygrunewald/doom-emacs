@@ -44,9 +44,11 @@ line with a linewise comment.")
 
   (put 'evil-define-key* 'lisp-indent-function 'defun)
 
-  (set-popup-rules!
-    '(("^\\*evil-registers" :size 0.3)
-      ("^\\*Command Line"   :size 8)))
+  (defun +evil|init-popup-rules ()
+    (set-popup-rules!
+      '(("^\\*evil-registers" :size 0.3)
+        ("^\\*Command Line"   :size 8))))
+  (add-hook 'doom-post-init-hook #'+evil|init-popup-rules)
 
   ;; Change the cursor color in emacs mode
   (defvar +evil--default-cursor-color "#ffffff")
@@ -86,7 +88,7 @@ line with a linewise comment.")
 
 
   ;; --- evil hacks -------------------------
-  (defun +evil|save-buffer ()
+  (defun +evil|display-vimlike-save-message ()
     "Shorter, vim-esque save messages."
     (message "\"%s\" %dL, %dC written"
              (if buffer-file-name
@@ -96,7 +98,7 @@ line with a linewise comment.")
              (buffer-size)))
   (unless noninteractive
     (setq save-silently t)
-    (add-hook 'after-save-hook #'+evil|save-buffer))
+    (add-hook 'after-save-hook #'+evil|display-vimlike-save-message))
   ;; Make ESC (from normal mode) the universal escaper. See `doom-escape-hook'.
   (advice-add #'evil-force-normal-state :after #'+evil*escape)
   ;; Don't move cursor when indenting

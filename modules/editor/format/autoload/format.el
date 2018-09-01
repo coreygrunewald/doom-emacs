@@ -1,10 +1,14 @@
 ;;; editor/format/autoload.el -*- lexical-binding: t; -*-
 
-;; Stolen shamelessly from go-mode
+;;;###autoload
+(autoload 'format-all-probe "format-all")
+
 (defun +format--delete-whole-line (&optional arg)
   "Delete the current line without putting it in the `kill-ring'.
 Derived from function `kill-whole-line'.  ARG is defined as for that
-function."
+function.
+
+Stolen shamelessly from go-mode"
   (setq arg (or arg 1))
   (if (and (> arg 0)
            (eobp)
@@ -26,10 +30,11 @@ function."
         ((delete-region (progn (forward-visible-line 0) (point))
                         (progn (forward-visible-line arg) (point))))))
 
-;; Stolen shamelessly from go-mode
 ;;;###autoload
 (defun +format--apply-rcs-patch (patch-buffer)
-  "Apply an RCS-formatted diff from PATCH-BUFFER to the current buffer."
+  "Apply an RCS-formatted diff from PATCH-BUFFER to the current buffer.
+
+Stolen shamelessly from go-mode"
   (let ((target-buffer (current-buffer))
         ;; Relative offset between buffer line numbers and line numbers
         ;; in patch.
@@ -91,40 +96,46 @@ of the buffer to apply formatting to."
 ;;
 
 ;;;###autoload
-(defun +format-buffer ()
+(defun +format-buffer (formatter mode-result)
   "Format the source code in the current buffer.
+
+Returns any of the following values:
+
+  'unknown   No formatter is defined for this major-mode
+  'error     Couldn't format buffer due to formatter errors
+  'noop      Buffer is already formatted
+
+Otherwise, returns a list: (list OUTPUT ERRORS FIRST-DIFF), where OUTPUT is the
+formatted text, ERRORS are any errors in string format, and FIRST-DIFF is the
+position of the first change in the buffer.
 
 See `+format/buffer' for the interactive version of this function, and
 `+format|buffer' to use as a `before-save-hook' hook."
-  (require 'format-all)
-  (cl-destructuring-bind (formatter mode-result)
-      (format-all-probe)
-    (unless formatter
-      (error "Don't know how to format %S code" major-mode))
-    (let ((f-function (gethash formatter format-all-format-table))
-          (executable (format-all-formatter-executable formatter)))
-      (cl-destructuring-bind (output errput first-diff)
-          (+format--with-copy-of-buffer f-function executable mode-result)
-        (unwind-protect
-            (cond ((null output) 'error)
-                  ((eq output t) 'noop)
-                  ((let ((tmpfile (make-temp-file "doom_format"))
-                         (patchbuf (get-buffer-create " *doom format patch*"))
-                         (coding-system-for-read 'utf-8)
-                         (coding-system-for-write 'utf-8))
-                     (unwind-protect
-                         (progn
-                           (with-current-buffer patchbuf (erase-buffer))
-                           (with-temp-file tmpfile (erase-buffer) (insert output))
-                           (if (zerop (call-process-region (point-min) (point-max) "diff" nil patchbuf nil "-n" "-" tmpfile))
-                               (message "Buffer is already formatted")
-                             (+format--apply-rcs-patch patchbuf)
-                             (message "Formatted buffer with %s" formatter)))
-                       (kill-buffer patchbuf)
-                       (delete-file tmpfile))
-                     (list output errput first-diff))))
-          (unless (= 0 (length errput))
-            (message "Formatter error output:\n%s" errput)))))))
+  (unless formatter
+    (user-error "Don't know how to format '%s' code" major-mode))
+  (let ((f-function (gethash formatter format-all-format-table))
+        (executable (format-all-formatter-executable formatter)))
+    (cl-destructuring-bind (output errput first-diff)
+        (+format--with-copy-of-buffer f-function executable mode-result)
+      (unwind-protect
+          (cond ((null output) 'error)
+                ((eq output t) 'noop)
+                ((let ((tmpfile (make-temp-file "doom-format"))
+                       (patchbuf (get-buffer-create " *doom format patch*"))
+                       (coding-system-for-read 'utf-8)
+                       (coding-system-for-write 'utf-8))
+                   (unwind-protect
+                       (progn
+                         (with-current-buffer patchbuf (erase-buffer))
+                         (with-temp-file tmpfile (erase-buffer) (insert output))
+                         (if (zerop (call-process-region (point-min) (point-max) "diff" nil patchbuf nil "-n" "-" tmpfile))
+                             'noop
+                           (+format--apply-rcs-patch patchbuf)
+                           (list output errput first-diff))))
+                   (kill-buffer patchbuf)
+                   (delete-file tmpfile))))
+        (unless (= 0 (length errput))
+          (message "Formatter error output:\n%s" errput))))))
 
 
 ;;
@@ -135,7 +146,7 @@ See `+format/buffer' for the interactive version of this function, and
 (defun +format/buffer ()
   "Format the source code in the current buffer."
   (interactive)
-  (+format-buffer))
+  (+format|buffer))
 
 ;;;###autoload
 (defun +format/region (beg end)
@@ -169,5 +180,13 @@ is selected)."
   (add-hook 'before-save-hook #'+format|buffer nil t))
 
 ;;;###autoload
-(defalias '+format|buffer #'+format-buffer)
+(defun +format|buffer ()
+  "Format the source code in the current buffer with minimal feedback.
+
+Meant for `before-save-hook'."
+  (cl-destructuring-bind (formatter mode-result) (format-all-probe)
+    (pcase (+format-buffer formatter mode-result)
+      (`error (message "Failed to format buffer due to errors"))
+      (`noop (message "Buffer was already formatted"))
+      (_ (message "Formatted (%s)" formatter)))))
 

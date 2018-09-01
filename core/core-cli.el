@@ -206,10 +206,10 @@ This patch fixes this by patching Emacs.app (in /Applications or
   1. Move Contents/MacOS/Emacs to Contents/MacOS/RunEmacs
   2. And replace Contents/MacOS/Emacs with the following wrapper script:
 
-     #!/usr/bin/env bash
+     #!/bin/bash
      args=\"$@\"
      pwd=\"$(cd \"$(dirname \"${BASH_SOURCE[0]}\")\"; pwd -P)\"
-     exec \"$SHELL\" -c \"$pwd/RunEmacs $args\"
+     exec \"$SHELL\" -l -c \"$pwd/RunEmacs $args\"
 
 This ensures that Emacs is always aware of your shell environment, regardless of
 how it is launched.
@@ -287,7 +287,7 @@ problems with doom."
                 (message "Updates for Doom are available!\n\n  Old revision: %s\n  New revision: %s\n"
                          current-rev rev)
                 (message "Comparision diff: https://github.com/hlissner/doom-emacs/compare/%s...%s\n"
-                         (substring rev 0 10) (substring current-rev 0 10))
+                         (substring current-rev 0 10) (substring rev 0 10))
                 ;; TODO Display newsletter diff
                 (unless (or doom-auto-accept (y-or-n-p "Proceed?"))
                   (user-error "Aborted"))

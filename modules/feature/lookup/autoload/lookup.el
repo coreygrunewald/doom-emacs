@@ -63,6 +63,10 @@ properties:
   `(set-lookup-handlers! ,modes ,@plist))
 
 
+;;
+;; Library
+;;
+
 ;; Helpers
 (defun +lookup--online-provider (&optional force-p namespace)
   (let ((key (or namespace major-mode)))
@@ -137,9 +141,9 @@ point or current buffer. Falls back to dumb-jump, naive
 ripgrep/the_silver_searcher text search, then `evil-goto-definition' if
 evil-mode is active."
   (interactive
-   (list (+lookup--symbol-or-region) current-prefix-arg))
-  (cond ((null identifier)
-         (user-error "Nothing under point"))
+   (list (+lookup--symbol-or-region)
+         current-prefix-arg))
+  (cond ((null identifier) (user-error "Nothing under point"))
 
         ((and +lookup-definition-functions
               (+lookup--jump-to :definition identifier)))
@@ -183,7 +187,9 @@ point and/or current buffer. Falls back to a naive ripgrep/the_silver_searcher
 search otherwise."
   (interactive
    (list (+lookup--symbol-or-region)))
-  (cond ((and +lookup-references-functions
+  (cond ((null identifier) (user-error "Nothing under point"))
+
+        ((and +lookup-references-functions
               (+lookup--jump-to :references identifier)))
 
         ((+lookup--file-search identifier))
@@ -201,17 +207,18 @@ Goes down a list of possible backends:
 3. Fall back to an online search, with `+lookup/online'"
   (interactive
    (list (+lookup--symbol-or-region)))
-  (cond ((and +lookup-documentation-functions
+  (cond ((null identifier) (user-error "Nothing under point"))
+
+        ((and +lookup-documentation-functions
               (+lookup--jump-to :documentation identifier)))
 
         ((and (featurep! +docsets)
               (or (require 'counsel-dash nil t)
                   (require 'helm-dash nil t))
-              (or (bound-and-true-p counsel-dash-docsets)
-                  (bound-and-true-p helm-dash-docsets))
-              ;; counsel-dash uses helm-dash under the hood
-              (helm-dash-installed-docsets))
-         (+lookup/in-docsets identifier))
+              (let ((docsets (+lookup-docsets-for-buffer)))
+                (when (cl-some #'+lookup-docset-installed-p docsets)
+                  (+lookup/in-docsets identifier docsets)
+                  t))))
 
         ((+lookup/online
           identifier

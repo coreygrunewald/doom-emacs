@@ -79,8 +79,6 @@ fundamental-mode) for performance sake."
 
 (electric-indent-mode -1) ; enabled by default in Emacs 25+. No thanks.
 
-(add-hook 'after-save-hook #'executable-make-buffer-file-executable-if-script-p)
-
 ;; revert buffers for changed files
 (def-package! autorevert
   :after-call after-find-file
@@ -211,7 +209,22 @@ savehist file."
     #'doom|detect-indentation)
   :config
   (setq dtrt-indent-verbosity (if doom-debug-mode 2 0))
-  (add-to-list 'dtrt-indent-hook-generic-mapping-list '(t tab-width)))
+  (add-to-list 'dtrt-indent-hook-generic-mapping-list '(t tab-width))
+  
+  (defun doom*fix-broken-smie-modes (orig-fn arg)
+    "Some smie modes throw errors when trying to guess their indentation, like
+`nim-mode'. This prevents them from leaving Emacs in a broken state."
+    (let ((dtrt-indent-run-after-smie dtrt-indent-run-after-smie))
+      (cl-letf* ((old-smie-config-guess (symbol-function 'smie-config-guess))
+                 ((symbol-function 'smie-config-guess)
+                  (lambda ()
+                    (condition-case e (funcall old-smie-config-guess)
+                      (error (setq dtrt-indent-run-after-smie t)
+                             (message "[WARNING] Indent detection: %s"
+                                      (error-message-string e))
+                             (message "")))))) ; warn silently
+        (funcall orig-fn arg))))
+  (advice-add #'dtrt-indent-mode :around #'doom*fix-broken-smie-modes))
 
 ;; Branching undo
 (def-package! undo-tree
@@ -279,6 +292,13 @@ savehist file."
   [remap describe-command]  #'helpful-command
   [remap describe-variable] #'helpful-variable
   [remap describe-key]      #'helpful-key)
+
+;; `ws-butler' --- a better `delete-trailing-whitespaces'
+(def-package! ws-butler
+  :after-call (after-find-file) 
+  :config
+  (nconc ws-butler-global-exempt-modes '(special-mode comint-mode term-mode eshell-mode))
+  (ws-butler-global-mode))
 
 (provide 'core-editor)
 ;;; core-editor.el ends here

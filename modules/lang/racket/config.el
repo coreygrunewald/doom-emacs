@@ -8,7 +8,7 @@
   (set-lookup-handlers! 'racket-mode
     :definition    #'racket-visit-definition
     :documentation #'racket-describe)
-  (set-docset! 'racket-mode "Racket")
+  (set-docsets! 'racket-mode "Racket")
   (set-pretty-symbols! 'racket-mode
     :lambda  "lambda"
     :map     "map"
@@ -18,12 +18,7 @@
 
   (setq racket-smart-open-bracket-enable t)
 
-  (add-hook! racket-mode
-    #'(;; 3rd-party functionality
-       doom|enable-delete-trailing-whitespace
-       ;; fontification
-       rainbow-delimiters-mode
-       highlight-quoted-mode))
+  (add-hook! racket-mode #'(rainbow-delimiters-mode highlight-quoted-mode))
 
   (map! :map racket-mode-map
         :localleader
