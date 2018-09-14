@@ -27,35 +27,47 @@
 ;;
 ;;; License: MIT
 
+(defvar doom-gc-cons-threshold 16777216 ; 16mb
+  "The default value to use for `gc-cons-threshold'. If you experience freezing,
+decrease this. If you experience stuttering, increase this.")
+
+(defvar doom-gc-cons-upper-limit 268435456 ; 256mb
+  "The temporary value for `gc-cons-threshold' to defer it.")
+
+
 (defvar doom--file-name-handler-alist file-name-handler-alist)
 
-(unless after-init-time
-  ;; A big contributor to long startup times is the garbage collector, so we
-  ;; up its memory threshold, temporarily and reset it later in
-  ;; `doom|finalize'.
-  (setq gc-cons-threshold 402653184
-        gc-cons-percentage 1.0
-        ;; consulted on every `require', `load' and various file reading
-        ;; functions. You get a minor speed up by nooping this.
-        file-name-handler-alist nil))
-
-(defun doom|finalize ()
-  "Resets garbage collection settings to reasonable defaults (if you don't do
-this, you'll get stuttering and random freezes) and resets
+(defun doom|restore-startup-optimizations ()
+  "Resets garbage collection settings to reasonable defaults (a large
+`gc-cons-threshold' can cause random freezes otherwise) and resets
 `file-name-handler-alist'."
-  (setq file-name-handler-alist doom--file-name-handler-alist
-        gc-cons-threshold 16777216
-        gc-cons-percentage 0.15))
+  (setq file-name-handler-alist doom--file-name-handler-alist)
+  ;; Do this on idle timer to defer a possible GC pause that could result; also
+  ;; allows deferred packages to take advantage of these optimizations.
+  (run-with-idle-timer
+   3 nil (lambda () (setq-default gc-cons-threshold doom-gc-cons-threshold))))
 
-(add-hook 'emacs-startup-hook #'doom|finalize)
-(add-hook 'doom-reload-hook   #'doom|finalize)
 
-;; Ensure Doom is always running out of this file's directory
-(setq user-emacs-directory (file-name-directory load-file-name)
-      ;; In noninteractive sessions, we hope that non-byte-compiled files will
-      ;; take precedence over byte-compiled ones, however, if you're getting odd
-      ;; recursive load errors, it may help to set this to nil.
-      load-prefer-newer noninteractive)
+(if (or after-init-time noninteractive)
+    (setq gc-cons-threshold doom-gc-cons-threshold)
+  ;; A big contributor to startup times is garbage collection. We up the gc
+  ;; threshold to temporarily prevent it from running, then reset it later in
+  ;; `doom|disable-startup-optimizations'.
+  (setq gc-cons-threshold doom-gc-cons-upper-limit)
+  ;; This is consulted on every `require', `load' and various file reading
+  ;; functions. You get a minor speed up by nooping this.
+  (setq file-name-handler-alist nil)
+  ;; Not restoring these to their defaults will cause stuttering/freezes.
+  (add-hook 'emacs-startup-hook #'doom|restore-startup-optimizations))
+
+
+;; Ensure Doom is running out of this file's directory
+(setq user-emacs-directory (file-name-directory load-file-name))
+;; In noninteractive sessions, prioritize non-byte-compiled source files to
+;; prevent stale, byte-compiled code from running. However, if you're getting
+;; recursive load errors, it may help to set this to nil.
+(setq load-prefer-newer noninteractive)
+
 
 ;; Let 'er rip!
 (require 'core (concat user-emacs-directory "core/core"))

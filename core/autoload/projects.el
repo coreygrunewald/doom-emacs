@@ -2,7 +2,6 @@
 
 ;;
 ;; Macros
-;;
 
 ;;;###autoload
 (defmacro without-project-cache! (&rest body)
@@ -25,7 +24,6 @@ they are absolute."
 
 ;;
 ;; Commands
-;;
 
 ;;;###autoload
 (defun doom/reload-project ()
@@ -39,7 +37,6 @@ they are absolute."
 
 ;;
 ;; Library
-;;
 
 ;;;###autoload
 (defun doom-project-p (&optional nocache)
@@ -74,8 +71,8 @@ If NOCACHE, don't fetch a cached answer."
 (defun doom-project-find-file (dir)
   "Fuzzy-find a file under DIR."
   (without-project-cache!
-   (let ((default-directory dir)
-         (projectile-project-root dir))
+   (let* ((default-directory (file-truename dir))
+          (projectile-project-root default-directory))
      (call-interactively
       ;; completion modules may remap this command
       (or (command-remapping #'projectile-find-file)
@@ -84,7 +81,7 @@ If NOCACHE, don't fetch a cached answer."
 ;;;###autoload
 (defun doom-project-browse (dir)
   "Traverse a file structure starting linearly from DIR."
-  (let ((default-directory dir))
+  (let ((default-directory (file-truename dir)))
     (call-interactively
      ;; completion modules may remap this command
      (or (command-remapping #'find-file)

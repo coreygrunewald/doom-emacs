@@ -6,7 +6,6 @@
 
 ;;
 ;; Library
-;;
 
 ;;;###autoload
 (defun +cc-sp-point-is-template-p (id action context)
@@ -28,14 +27,14 @@
 ;;;###autoload
 (defun +cc-c++-lineup-inclass (langelem)
   "Indent inclass lines one level further than access modifier keywords."
-  (when (and (eq major-mode 'c++-mode)
-             (or (assoc 'access-label c-syntactic-context)
-                 (save-excursion
-                   (save-match-data
-                     (re-search-backward
-                      "\\(?:p\\(?:ublic\\|r\\(?:otected\\|ivate\\)\\)\\)"
-                      (c-langelem-pos langelem) t)))))
-    '++))
+  (and (eq major-mode 'c++-mode)
+       (or (assoc 'access-label c-syntactic-context)
+           (save-excursion
+             (save-match-data
+               (re-search-backward
+                "\\(?:p\\(?:ublic\\|r\\(?:otected\\|ivate\\)\\)\\)"
+                (c-langelem-pos langelem) t))))
+       '++))
 
 ;;;###autoload
 (defun +cc-lineup-arglist-close (langlem)
@@ -56,10 +55,9 @@ preceded by the opening brace or a comma (disregarding whitespace in between)."
         (re-search-forward regexp magic-mode-regexp-match-limit t)))))
 
 ;;;###autoload
-(defun +cc-c-c++-objc-mode (&optional file)
+(defun +cc-c-c++-objc-mode ()
   "Sets either `c-mode', `objc-mode' or `c++-mode', whichever is appropriate."
-  (let ((base (file-name-sans-extension buffer-file-name))
-        file)
+  (let ((base (file-name-sans-extension (buffer-file-name (buffer-base-buffer)))))
     (cond ((file-exists-p! (or (concat base ".cpp")
                                (concat base ".cc")))
            (c++-mode))
@@ -84,12 +82,13 @@ preceded by the opening brace or a comma (disregarding whitespace in between)."
                       "\\|" "#include"  ws-maybe "<\\(?:string\\|iostream\\|map\\)>"
                       "\\)")))
            (c++-mode))
+          ((functionp +cc-default-header-file-mode)
+           (funcall +cc-default-header-file-mode))
           ((c-mode)))))
 
 
 ;;
 ;; Commands
-;;
 
 ;;;###autoload
 (defun +cc/reload-compile-db ()
@@ -125,7 +124,6 @@ preceded by the opening brace or a comma (disregarding whitespace in between)."
 
 ;;
 ;; Hooks
-;;
 
 ;;;###autoload
 (defun +cc|fontify-constants ()

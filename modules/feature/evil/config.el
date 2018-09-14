@@ -36,7 +36,7 @@ line with a linewise comment.")
         evil-insert-state-cursor 'bar
         evil-visual-state-cursor 'hollow
         ;; must be set before evil/evil-collection is loaded
-        evil-want-integration (not (featurep! +everywhere)))
+        evil-want-keybinding (not (featurep! +everywhere)))
 
   :config
   (add-hook 'doom-post-init-hook #'evil-mode)
@@ -51,7 +51,10 @@ line with a linewise comment.")
   (add-hook 'doom-post-init-hook #'+evil|init-popup-rules)
 
   ;; Change the cursor color in emacs mode
-  (defvar +evil--default-cursor-color "#ffffff")
+  (defvar +evil--default-cursor-color
+    (or (ignore-errors (frame-parameter nil 'cursor-color))
+        "#ffffff"))
+
   (defun +evil-default-cursor () (set-cursor-color +evil--default-cursor-color))
   (defun +evil-emacs-cursor ()   (set-cursor-color (face-foreground 'warning)))
 
@@ -134,61 +137,8 @@ line with a linewise comment.")
         (funcall orig-fn char)))
   (advice-add #'evil-global-marker-p :around #'+evil*make-numbered-markers-global)
 
-  ;; Make o/O continue comments
-  (defun +evil*insert-newline-above-and-respect-comments (orig-fn count)
-    (cl-letf* ((old-insert-newline-above (symbol-function 'evil-insert-newline-above))
-               ((symbol-function 'evil-insert-newline-above)
-                (lambda ()
-                  (if (or (not +evil-want-o/O-to-continue-comments)
-                          (evil-insert-state-p))
-                      (funcall old-insert-newline-above)
-                    (let ((pos (save-excursion (beginning-of-line-text) (point))))
-                      (evil-narrow-to-field
-                        (if (save-excursion (nth 4 (syntax-ppss pos)))
-                            (evil-save-goal-column
-                              (setq evil-auto-indent nil)
-                              (goto-char pos)
-                              (let ((ws (abs (skip-chars-backward " \t"))))
-                                ;; FIXME oh god why
-                                (save-excursion
-                                  (if comment-line-break-function
-                                      (funcall comment-line-break-function)
-                                    (comment-indent-new-line))
-                                  (when (and (derived-mode-p 'c-mode 'c++-mode 'objc-mode 'java-mode 'js2-mode)
-                                             (eq (char-after) ?/))
-                                    (insert "*"))
-                                  (insert
-                                   (make-string (max 0 (+ ws (skip-chars-backward " \t")))
-                                                32)))
-                                (insert (make-string (max 1 ws) 32))))
-                          (evil-move-beginning-of-line)
-                          (insert (if use-hard-newlines hard-newline "\n"))
-                          (forward-line -1)
-                          (back-to-indentation))))))))
-      (let ((evil-auto-indent evil-auto-indent))
-        (funcall orig-fn count))))
+  ;; Make o/O continue comments (see `+evil-want-o/O-to-continue-comments')
   (advice-add #'evil-open-above :around #'+evil*insert-newline-above-and-respect-comments)
-
-  (defun +evil*insert-newline-below-and-respect-comments (orig-fn count)
-    (cl-letf* ((old-insert-newline-below (symbol-function 'evil-insert-newline-below))
-               ((symbol-function 'evil-insert-newline-below)
-                (lambda ()
-                  (if (or (not +evil-want-o/O-to-continue-comments)
-                          (evil-insert-state-p))
-                      (funcall old-insert-newline-below)
-                    (let ((pos (save-excursion (beginning-of-line-text) (point))))
-                      (evil-narrow-to-field
-                        (evil-move-end-of-line)
-                        (cond ((sp-point-in-comment pos)
-                               (setq evil-auto-indent nil)
-                               (if comment-line-break-function
-                                   (funcall comment-line-break-function)
-                                 (comment-indent-new-line)))
-                              (t
-                               (insert (if use-hard-newlines hard-newline "\n"))
-                               (back-to-indentation)))))))))
-      (let ((evil-auto-indent evil-auto-indent))
-        (funcall orig-fn count))))
   (advice-add #'evil-open-below :around #'+evil*insert-newline-below-and-respect-comments)
 
   ;; --- custom interactive codes -----------
@@ -220,8 +170,7 @@ line with a linewise comment.")
 
 
 ;;
-;; Plugins
-;;
+;; Packages
 
 (def-package! evil-commentary
   :commands (evil-commentary evil-commentary-yank evil-commentary-line)
@@ -308,7 +257,9 @@ line with a linewise comment.")
   (evil-define-key* '(insert replace visual operator) 'global "\C-g" #'evil-escape)
   :config
   ;; no `evil-escape' in minibuffer
-  (add-hook 'evil-escape-inhibit-functions #'minibufferp))
+  (add-hook 'evil-escape-inhibit-functions #'minibufferp)
+  ;; so that evil-escape-mode-hook runs, and can be toggled by evil-mc
+  (evil-escape-mode +1))
 
 
 (def-package! evil-exchange
@@ -393,16 +344,6 @@ the new algorithm is confusing, like in python or ruby."
 
 ;;
 ;; Text object plugins
-;;
-
-(def-package! evil-args
-  :commands (evil-inner-arg evil-outer-arg
-             evil-forward-arg evil-backward-arg
-             evil-jump-out-args)
-  :config
-  (unless (member "<" evil-args-openers)
-    (push "<" evil-args-openers)
-    (push ">" evil-args-closers)))
 
 (def-package! exato
   :commands (evil-outer-xml-attr evil-inner-xml-attr))

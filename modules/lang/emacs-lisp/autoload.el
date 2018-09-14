@@ -2,7 +2,6 @@
 
 ;;
 ;; Library
-;;
 
 ;;;###autoload
 (defun +emacs-lisp-eval (beg end)
@@ -17,7 +16,8 @@ to a pop up buffer."
       (read-only-mode +1)
       (erase-buffer)
       (setq-local scroll-margin 0)
-      (delay-mode-hooks (emacs-lisp-mode))
+      (let (emacs-lisp-mode-hook)
+        (emacs-lisp-mode))
       (prin1 result buf)
       (pp-buffer)
       (setq lines (count-lines (point-min) (point-max)))
@@ -66,14 +66,13 @@ library/userland functions"
 ;; `+emacs-lisp-highlight-vars-and-faces' is a potentially expensive function
 ;; and should be byte-compiled, no matter what, to ensure it runs as fast as
 ;; possible:
-(eval-when-compile
+(when (not (byte-code-function-p (symbol-function '+emacs-lisp-highlight-vars-and-faces)))
   (with-no-warnings
     (byte-compile #'+emacs-lisp-highlight-vars-and-faces)))
 
 
 ;;
 ;; Commands
-;;
 
 ;;;###autoload
 (defun +emacs-lisp/repl ()
@@ -89,7 +88,6 @@ library/userland functions"
 
 ;;
 ;; Hooks
-;;
 
 ;;;###autoload
 (defun +emacs-lisp|extend-imenu ()

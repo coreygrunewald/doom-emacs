@@ -21,7 +21,6 @@
 
 ;;
 ;; Library
-;;
 
 ;;;###autoload
 (defun +ivy-projectile-find-file-transformer (str)
@@ -116,9 +115,9 @@ If ARG (universal argument), open selection in other-window."
                                "\\):?\\s-*\\(.+\\)")
                        x)
                       (error
-                       (print! (red "Error matching task in file: (%s) %s"
-                                    (error-message-string ex)
-                                    (car (split-string x ":"))))
+                       (print! (red "Error matching task in file: (%s) %s")
+                               (error-message-string ex)
+                               (car (split-string x ":")))
                        nil))
                collect `((type . ,(match-string 3 x))
                          (desc . ,(match-string 4 x))
@@ -206,7 +205,6 @@ search current file. See `+ivy-task-tags' to customize what this searches for."
 
 ;;
 ;; File searching
-;;
 
 ;;;###autoload
 (defun +ivy/projectile-find-file ()
@@ -316,9 +314,9 @@ Uses the first available search backend from `+ivy-project-search-engines'. If
 ALL-FILES-P (universal argument), include all files, even hidden or compressed
 ones, in the search."
   (interactive "P")
-  (call-interactively
-   (or (+ivy--get-command "+ivy/%s")
-       #'+ivy/grep)))
+  (funcall (or (+ivy--get-command "+ivy/%s")
+               #'+ivy/grep)
+           (or all-files-p current-prefix-arg)))
 
 ;;;###autoload
 (defun +ivy/project-search-from-cwd (&optional all-files-p)
@@ -328,9 +326,9 @@ Uses the first available search backend from `+ivy-project-search-engines'. If
 ALL-FILES-P (universal argument), include all files, even hidden or compressed
 ones."
   (interactive "P")
-  (call-interactively
-   (or (+ivy--get-command "+ivy/%s-from-cwd")
-       #'+ivy/grep-from-cwd)))
+  (funcall (or (+ivy--get-command "+ivy/%s-from-cwd")
+               #'+ivy/grep-from-cwd)
+           (or all-files-p current-prefix-arg)))
 
 
 ;; Relative to project root
@@ -357,7 +355,7 @@ If ALL-FILES-P, search compressed and hidden files as well."
             engine))
 
   (defalias (intern (format "+ivy/%s-from-cwd" engine))
-    (lambda (all-files-p &optional query directory)
+    (lambda (all-files-p &optional query)
       (interactive "P")
       (+ivy-file-search engine :query query :in default-directory :all-files all-files-p))
     (format "Perform a project file search from the current directory using %s.

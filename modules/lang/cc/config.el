@@ -5,6 +5,10 @@
 C/C++. Paths can be absolute. This is ignored if your project has a compilation
 database.")
 
+(defvar +cc-default-header-file-mode 'c-mode
+  "Fallback major mode for .h files if all other heuristics fail (in
+`+cc-c-c++-objc-mode').")
+
 (defvar +cc-default-compiler-options
   `((c-mode . nil)
     (c++-mode
@@ -20,8 +24,7 @@ compilation database is present in the project.")
 
 
 ;;
-;; Plugins
-;;
+;; Packages
 
 (def-package! cc-mode
   :commands (c-mode c++-mode objc-mode java-mode)
@@ -159,22 +162,18 @@ compilation database is present in the project.")
 
 ;;
 ;; Major modes
-;;
 
-;; `cmake-mode'
-(def-package! company-cmake
+(def-package! company-cmake  ; for `cmake-mode'
   :when (featurep! :completion company)
   :after cmake-mode
   :config (set-company-backend! 'cmake-mode 'company-cmake))
 
 
-;; `demangle-mode'
 (def-package! demangle-mode
   :hook llvm-mode)
 
 
-;; `glsl-mode'
-(def-package! company-glsl
+(def-package! company-glsl  ; for `glsl-mode'
   :when (featurep! :completion company)
   :after glsl-mode
   :config (set-company-backend! 'glsl-mode 'company-glsl))
@@ -182,7 +181,6 @@ compilation database is present in the project.")
 
 ;;
 ;; Rtags Support
-;;
 
 (def-package! rtags
   :when (featurep! +rtags)

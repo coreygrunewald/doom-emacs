@@ -16,7 +16,7 @@
 (defvar +modeline-width 3
   "How wide the mode-line bar should be (only respected in GUI emacs).")
 
-(defvar +modeline-height 23
+(defvar +modeline-height 25
   "How tall the mode-line should be (only respected in GUI emacs).")
 
 (defvar +modeline-bar-at-end nil
@@ -68,7 +68,6 @@ Currently available functions:
 
 ;;
 ;; Custom faces
-;;
 
 (defgroup +modeline nil
   "TODO"
@@ -124,8 +123,7 @@ Currently available functions:
 
 
 ;;
-;; Plugins
-;;
+;; Packages
 
 (def-package! anzu
   :after-call isearch-mode
@@ -161,7 +159,6 @@ Currently available functions:
 
 ;;
 ;; Hacks
-;;
 
 ;; Keep `+modeline-current-window' up-to-date
 (defvar +modeline-current-window (frame-selected-window))
@@ -225,7 +222,6 @@ Currently available functions:
 
 ;;
 ;; Helpers
-;;
 
 (defun +modeline--make-xpm (width height &optional color)
   "Create an XPM bitmap. Inspired by `powerline''s `pl/make-xpm'."
@@ -249,7 +245,7 @@ Currently available functions:
                   concat (if (eq idx len) "\"};" "\",\n")))
         'xpm t :ascent 'center)))))
 
-(defun +modeline-build-path (&optional path)
+(defun +modeline-build-path (path)
   "Construct the file path for the `+modeline-buffer-id' segment using
 `+mdoeline-buffer-path-function'. If the buffer has no `buffer-file-name', just
 use `buffer-name'."
@@ -264,7 +260,6 @@ use `buffer-name'."
 
 ;;
 ;; Buffer file path styles
-;;
 
 (defun +modeline-file-path-with-project ()
   "Returns the unaltered buffer file path relative to the project root's
@@ -356,7 +351,6 @@ Meant for `+modeline-buffer-path-function'."
 
 ;;
 ;; Bars
-;;
 
 (defvar +modeline-bar-start nil "TODO")
 (put '+modeline-bar-start 'risky-local-variable t)
@@ -394,7 +388,6 @@ Meant for `+modeline-buffer-path-function'."
 
 ;;
 ;; Segments
-;;
 
 (defun +modeline|update-on-change ()
   (+modeline--set-+modeline-buffer-state)
@@ -433,9 +426,7 @@ Meant for `+modeline-buffer-path-function'."
   :on-hooks (find-file-hook after-save-hook after-revert-hook)
   :init (propertize "%b" 'face 'doom-modeline-buffer-file)
   :faces t
-  (if buffer-file-name
-      (+modeline-build-path (buffer-file-name (buffer-base-buffer)))
-    (propertize "%b" 'face 'doom-modeline-buffer-file)))
+  (+modeline-build-path (buffer-file-name (buffer-base-buffer))))
 
 (def-modeline-segment! +modeline-buffer-directory
   (let ((face (if (active) 'doom-modeline-buffer-path)))
@@ -484,16 +475,23 @@ Meant for `+modeline-buffer-path-function'."
 
 (def-modeline-segment! +modeline-encoding
   :on-hooks (after-revert-hook after-save-hook find-file-hook)
-  :on-set (buffer-file-coding-system)
-  (concat (pcase (coding-system-eol-type buffer-file-coding-system)
-            (0 "LF  ")
-            (1 "CRLF  ")
-            (2 "CR  "))
-          (let ((sys (coding-system-plist buffer-file-coding-system)))
-            (if (memq (plist-get sys :category) '(coding-category-undecided coding-category-utf-8))
-                "UTF-8"
-              (upcase (symbol-name (plist-get sys :name)))))
-          "  "))
+  :on-set (buffer-file-coding-system indent-tabs-mode tab-width)
+  (format "%s%d  %s  %s"
+          (if indent-tabs-mode "⭾" "␣")
+          tab-width
+          (pcase (coding-system-eol-type buffer-file-coding-system)
+            (0 "LF")
+            (1 "CRLF")
+            (2 "CR"))
+          (let* ((sys (coding-system-plist buffer-file-coding-system))
+                 (category (plist-get sys :category)))
+            (cond ((eq category 'coding-category-undecided)
+                   "")
+                  ((or (eq category 'coding-category-utf-8)
+                       (eq (plist-get sys :name) 'prefer-utf-8))
+                   "UTF-8  ")
+                  ((concat (upcase (symbol-name (plist-get sys :name)))
+                           "  "))))))
 
 (def-modeline-segment! +modeline-major-mode
   (propertize (format-mode-line mode-name)
@@ -662,7 +660,6 @@ icons."
 
 ;;
 ;; Preset modeline formats
-;;
 
 (def-modeline-format! :main
   '(+modeline-matches " "
@@ -692,9 +689,6 @@ icons."
 
 
 ;;
-;;
-;;
-
 (def-modeline-segment! +modeline--rest
   (let ((rhs-str (format-mode-line +modeline-format-right)))
     (list (propertize

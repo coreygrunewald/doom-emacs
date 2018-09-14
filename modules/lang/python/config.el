@@ -9,8 +9,7 @@
 
 
 ;;
-;; Plugins
-;;
+;; Packages
 
 (def-package! python
   :defer t
@@ -43,7 +42,9 @@
 
   (define-key python-mode-map (kbd "DEL") nil) ; interferes with smartparens
   (sp-with-modes 'python-mode
-    (sp-local-pair "'" nil :unless '(sp-point-before-word-p sp-point-after-word-p sp-point-before-same-p)))
+    (sp-local-pair "'" nil :unless '(sp-point-before-word-p
+                                     sp-point-after-word-p
+                                     sp-point-before-same-p)))
 
   (when (featurep! +ipython)
     (setq python-shell-interpreter "ipython"
@@ -55,6 +56,8 @@
           "from IPython.core.completerlib import module_completion"
           python-shell-completion-string-code
           "';'.join(get_ipython().Completer.all_completions('''%s'''))\n"))
+
+  (setq-hook! 'python-mode-hook tab-width python-indent-offset)
 
   ;; Add python/pipenv version string to the major mode in the modeline
   (defun +python|adjust-mode-line ()
@@ -126,7 +129,6 @@
 
 ;;
 ;; Environment management
-;;
 
 (def-package! pipenv
   :commands pipenv-project-p
@@ -179,7 +181,8 @@
   (unless (cl-loop for dir in (list conda-anaconda-home
                                     "~/.anaconda"
                                     "~/.miniconda"
-                                    "/usr/bin/anaconda3")
+                                    "/usr/bin/anaconda3"
+                                    "/usr/local/anaconda3")
                    if (file-directory-p dir)
                    return (setq conda-anaconda-home dir
                                 conda-env-home-directory dir))

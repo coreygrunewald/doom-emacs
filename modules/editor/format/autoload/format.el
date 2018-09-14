@@ -1,5 +1,9 @@
 ;;; editor/format/autoload.el -*- lexical-binding: t; -*-
 
+(defvar +format-type 'buffer
+  "A symbol representing whether the buffer or a region of it is being
+formatted. Can be 'buffer or 'region.")
+
 ;;;###autoload
 (autoload 'format-all-probe "format-all")
 
@@ -77,23 +81,28 @@ Stolen shamelessly from go-mode"
              ((error "Invalid rcs patch or internal error in +format--apply-rcs-patch")))))))
     (move-to-column column)))
 
-(defun +format--with-copy-of-buffer (formatter executable mode-result)
-  "Run formatter in a copy of the current buffer.
-
-Since `format-all' functions (and various formatting functions, like `gofmt')
-widen the buffer, in order to only format a region of text, we must make a copy
-of the buffer to apply formatting to."
-  (if (buffer-narrowed-p)
-      (let ((output (buffer-substring-no-properties (point-min) (point-max))))
-        (with-temp-buffer
-          (insert output)
-          (funcall formatter executable mode-result)))
-    (funcall formatter executable mode-result)))
+(defun +format--current-indentation ()
+  (save-excursion
+    (goto-char (point-min))
+    (skip-chars-forward " \t\n")
+    (current-indentation)))
 
 
 ;;
 ;; Public library
-;;
+
+(defun +format-completing-read ()
+  (require 'format-all)
+  (let* ((fmtlist (mapcar #'symbol-name (hash-table-keys format-all-format-table)))
+         (fmt (completing-read "Formatter: " fmtlist)))
+    (if fmt (cons (intern fmt) t))))
+
+;;;###autoload
+(defun +format*probe (orig-fn)
+  "Use `+format-with' instead, if it is set."
+  (if +format-with
+      (cons +format-with t)
+    (funcall orig-fn)))
 
 ;;;###autoload
 (defun +format-buffer (formatter mode-result)
@@ -114,9 +123,22 @@ See `+format/buffer' for the interactive version of this function, and
   (unless formatter
     (user-error "Don't know how to format '%s' code" major-mode))
   (let ((f-function (gethash formatter format-all-format-table))
-        (executable (format-all-formatter-executable formatter)))
-    (cl-destructuring-bind (output errput first-diff)
-        (+format--with-copy-of-buffer f-function executable mode-result)
+        (executable (format-all-formatter-executable formatter))
+        indent)
+    (pcase-let
+        ((`(,output ,errput ,first-diff)
+          ;; Since `format-all' functions (and various formatting functions,
+          ;; like `gofmt') widen the buffer, in order to only format a region of
+          ;; text, we must make a copy of the buffer to apply formatting to.
+          (let ((output (buffer-substring-no-properties (point-min) (point-max))))
+            (with-temp-buffer
+              (insert output)
+              ;; Since we're piping a region of text to the formatter, remove
+              ;; any leading indentation to make it look like a file.
+              (setq indent (+format--current-indentation))
+              (when (> indent 0)
+                (indent-rigidly (point-min) (point-max) (- indent)))
+              (funcall f-function executable mode-result)))))
       (unwind-protect
           (cond ((null output) 'error)
                 ((eq output t) 'noop)
@@ -126,53 +148,61 @@ See `+format/buffer' for the interactive version of this function, and
                        (coding-system-for-write 'utf-8))
                    (unwind-protect
                        (progn
-                         (with-current-buffer patchbuf (erase-buffer))
-                         (with-temp-file tmpfile (erase-buffer) (insert output))
+                         (with-current-buffer patchbuf
+                           (erase-buffer))
+                         (with-temp-file tmpfile
+                           (erase-buffer)
+                           (insert output)
+                           (when (> indent 0)
+                             ;; restore indentation without affecting new
+                             ;; indentation
+                             (indent-rigidly (point-min) (point-max)
+                                             (max 0 (- indent (+format--current-indentation))))))
                          (if (zerop (call-process-region (point-min) (point-max) "diff" nil patchbuf nil "-n" "-" tmpfile))
                              'noop
                            (+format--apply-rcs-patch patchbuf)
-                           (list output errput first-diff))))
-                   (kill-buffer patchbuf)
-                   (delete-file tmpfile))))
+                           (list output errput first-diff)))
+                     (kill-buffer patchbuf)
+                     (delete-file tmpfile)))))
         (unless (= 0 (length errput))
           (message "Formatter error output:\n%s" errput))))))
 
 
 ;;
 ;; Commands
-;;
 
 ;;;###autoload
-(defun +format/buffer ()
+(defun +format/buffer (&optional arg)
   "Format the source code in the current buffer."
-  (interactive)
-  (+format|buffer))
+  (interactive "P")
+  (let ((+format-with (if arg (+format-completing-read))))
+    (+format|buffer)))
 
 ;;;###autoload
-(defun +format/region (beg end)
+(defun +format/region (beg end &optional arg)
   "Runs the active formatter on the lines within BEG and END.
 
 WARNING: this may not work everywhere. It will throw errors if the region
 contains a syntax error in isolation. It is mostly useful for formatting
 snippets or single lines."
-  (interactive "r")
+  (interactive "rP")
   (save-restriction
     (narrow-to-region beg end)
-    (+format/buffer)))
+    (let ((+format-type 'region))
+      (+format/buffer arg))))
 
 ;;;###autoload
-(defun +format/region-or-buffer (beg end)
+(defun +format/region-or-buffer (beg end &optional arg)
   "Runs the active formatter on the selected region (or whole buffer, if nothing
 is selected)."
-  (interactive "r")
+  (interactive "rP")
   (if (use-region-p)
-      (+format/region beg end)
-    (+format/buffer)))
+      (+format/region beg end arg)
+    (+format/buffer arg)))
 
 
 ;;
 ;; Hooks
-;;
 
 ;;;###autoload
 (defun +format|enable-on-save ()
@@ -184,9 +214,8 @@ is selected)."
   "Format the source code in the current buffer with minimal feedback.
 
 Meant for `before-save-hook'."
-  (cl-destructuring-bind (formatter mode-result) (format-all-probe)
+  (pcase-let ((`(,formatter ,mode-result) (format-all-probe)))
     (pcase (+format-buffer formatter mode-result)
-      (`error (message "Failed to format buffer due to errors"))
-      (`noop (message "Buffer was already formatted"))
-      (_ (message "Formatted (%s)" formatter)))))
-
+      (`error (message "Failed to format buffer due to errors") nil)
+      (`noop  (message "Buffer was already formatted") nil)
+      (_ (message "Formatted (%s)" formatter) t))))

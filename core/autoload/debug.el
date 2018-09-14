@@ -71,13 +71,11 @@ ready to be pasted in a bug report on github."
 
 ;;
 ;; Commands
-;;
 
 ;;;###autoload
 (defun doom/info ()
   "Collects some debug information about your Emacs session, formats it into
 markdown and copies it to your clipboard, ready to be pasted into bug reports!"
-  (declare (interactive-only t))
   (interactive)
   (message "Generating Doom info...")
   (if noninteractive
@@ -135,9 +133,7 @@ pasting into a bug report or discord."
     (user-error "No backtrace buffer detected")))
 
 
-;;
-;; Vanilla sandbox
-;;
+;;; Vanilla sandbox
 
 (defvar doom--sandbox-init-doom-p nil)
 
@@ -204,9 +200,7 @@ standing in the way, and without sacrificing access to installed packages."
     (pop-to-buffer buf)))
 
 
-;;
-;; Reporting bugs
-;;
+;;; Reporting bugs
 
 (defun doom--open-bug-report ()
   "TODO"
@@ -276,9 +270,7 @@ will be automatically appended to the result."
       (pop-to-buffer buf))))
 
 
-;;
-;; Profiling
-;;
+;;; Profiling
 
 (defvar doom--profiler nil)
 ;;;###autoload

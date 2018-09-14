@@ -1,6 +1,6 @@
 ;;; core-lib.el -*- lexical-binding: t; -*-
 
-;; Built in packages we use a lot of
+;; Built-in packages we use a lot of
 (require 'subr-x)
 (require 'cl-lib)
 
@@ -10,28 +10,10 @@
       ;; if-let and when-let are deprecated in Emacs 26+ in favor of their
       ;; if-let* variants, so we alias them for 25 users.
       (defalias 'if-let* #'if-let)
-      (defalias 'when-let* #'when-let)
-
-      ;; `alist-get' doesn't have its 5th argument before Emacs 26
-      (defun doom*alist-get (key alist &optional default remove testfn)
-        "Return the value associated with KEY in ALIST.
-If KEY is not found in ALIST, return DEFAULT.
-Use TESTFN to lookup in the alist if non-nil.  Otherwise, use `assq'.
-
-This is a generalized variable suitable for use with `setf'.
-When using it to set a value, optional argument REMOVE non-nil
-means to remove KEY from ALIST if the new value is `eql' to DEFAULT."
-        (ignore remove) ;;Silence byte-compiler.
-        (let ((x (if (not testfn)
-                     (assq key alist)
-                   (assoc key alist testfn))))
-          (if x (cdr x) default)))
-      (advice-add #'alist-get :override #'doom*alist-get))))
-
+      (defalias 'when-let* #'when-let))))
 
 ;;
 ;; Helpers
-;;
 
 (defun doom--resolve-path-forms (spec &optional directory)
   "Converts a simple nested series of or/and forms into a series of
@@ -93,8 +75,7 @@ This is used by `associate!', `file-exists-p!' and `project-file-exists-p!'."
 
 
 ;;
-;; Functions
-;;
+;; Public library
 
 (defun doom-unquote (exp)
   "Return EXP unquoted."
@@ -120,88 +101,6 @@ This is used by `associate!', `file-exists-p!' and `project-file-exists-p!'."
   (cl-check-type :test keyword)
   (substring (symbol-name keyword) 1))
 
-(cl-defun doom-files-in
-    (path-or-paths &rest rest
-                   &key
-                   filter
-                   map
-                   full
-                   nosort
-                   (follow-symlinks t)
-                   (type 'files)
-                   (relative-to (unless full default-directory))
-                   (depth 99999)
-                   (mindepth 0)
-                   (match "/[^.]"))
-  "Returns a list of files/directories in PATH-OR-PATHS (one string path or a
-list of them).
-
-FILTER is a function or symbol that takes one argument (the path). If it returns
-non-nil, the entry will be excluded.
-
-MAP is a function or symbol which will be used to transform each entry in the
-results.
-
-TYPE determines what kind of path will be included in the results. This can be t
-(files and folders), 'files or 'dirs.
-
-By default, this function returns paths relative to PATH-OR-PATHS if it is a
-single path. If it a list of paths, this function returns absolute paths.
-Otherwise, by setting RELATIVE-TO to a path, the results will be transformed to
-be relative to it.
-
-The search recurses up to DEPTH and no further. DEPTH is an integer.
-
-MATCH is a string regexp. Only entries that match it will be included."
-  (cond
-   ((listp path-or-paths)
-    (cl-loop for path in path-or-paths
-             if (file-directory-p path)
-             nconc (apply #'doom-files-in path (plist-put rest :relative-to relative-to))))
-   ((let ((path path-or-paths)
-          result)
-      (when (file-directory-p path)
-        (dolist (file (directory-files path nil "." nosort))
-          (unless (member file '("." ".."))
-            (let ((fullpath (expand-file-name file path)))
-              (cond ((file-directory-p fullpath)
-                     (when (and (memq type '(t dirs))
-                                (string-match-p match fullpath)
-                                (not (and filter (funcall filter fullpath)))
-                                (not (and (file-symlink-p fullpath)
-                                          (not follow-symlinks)))
-                                (<= mindepth 0))
-                       (setq result
-                             (nconc result
-                                    (list (cond (map (funcall map fullpath))
-                                                (relative-to (file-relative-name fullpath relative-to))
-                                                (fullpath))))))
-                     (unless (< depth 1)
-                       (setq result
-                             (nconc result (apply #'doom-files-in fullpath
-                                                  (append `(:mindepth ,(1- mindepth)
-                                                            :depth ,(1- depth)
-                                                            :relative-to ,relative-to)
-                                                          rest))))))
-                    ((and (memq type '(t files))
-                          (string-match-p match fullpath)
-                          (not (and filter (funcall filter fullpath)))
-                          (<= mindepth 0))
-                     (push (if relative-to
-                               (file-relative-name fullpath relative-to)
-                             fullpath)
-                           result))))))
-        result)))))
-
-(defun doom*shut-up (orig-fn &rest args)
-  "Generic advisor for silencing noisy functions."
-  (quiet! (apply orig-fn args)))
-
-
-;;
-;; Macros
-;;
-
 (defun FILE! ()
   "Return the emacs lisp file this macro is called from."
   (cond ((bound-and-true-p byte-compile-current-file))
@@ -213,6 +112,10 @@ MATCH is a string regexp. Only entries that match it will be included."
   "Returns the directory of the emacs lisp file this macro is called from."
   (let ((file (FILE!)))
     (and file (file-name-directory file))))
+
+
+;;
+;; Macros
 
 (defmacro λ! (&rest body)
   "A shortcut for inline interactive lambdas."
@@ -227,7 +130,7 @@ serve as a predicated alternative to `after!'."
   (declare (indent defun) (debug t))
   `(if ,condition
        (progn ,@body)
-     ,(let ((fun (gensym "doom|delay-form-")))
+     ,(let ((fun (make-symbol "doom|delay-form-")))
         `(progn
            (fset ',fun (lambda (&rest args)
                          (when ,(or condition t)
@@ -293,7 +196,7 @@ advised)."
   (let ((append (if (eq (car forms) :after) (pop forms)))
         (fn (if (symbolp (car forms))
                 (intern (format "doom|transient-hook-%s" (pop forms)))
-              (gensym "doom|transient-hook-"))))
+              (make-symbol "doom|transient-hook-"))))
     `(progn
        (fset ',fn
              (lambda (&rest _)

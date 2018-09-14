@@ -1,12 +1,6 @@
 ;; -*- no-byte-compile: t; -*-
 ;;; lang/web/packages.el
 
-;; requires js-beautify stylelint stylelint-scss
-
-(package! rainbow-mode)
-(when (featurep! :completion ivy)
-  (package! counsel-css))
-
 ;; +html.el
 (package! emmet-mode)
 (package! haml-mode)
@@ -20,4 +14,8 @@
 (package! less-css-mode)
 (package! sass-mode)
 (package! stylus-mode)
-
+(package! rainbow-mode)
+(when (featurep! :completion ivy)
+  (package! counsel-css))
+(when (featurep! :completion helm)
+  (package! helm-css-scss))

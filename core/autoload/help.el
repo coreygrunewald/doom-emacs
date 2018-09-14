@@ -28,6 +28,7 @@
     (python-mode :lang python)
     (restclient-mode :lang rest)
     (ruby-mode :lang ruby)
+    (enh-ruby-mode :lang ruby)
     (rust-mode :lang rust)
     (scala-mode :lang scala)
     (sh-mode :lang sh)
@@ -44,7 +45,6 @@
 
 ;;
 ;; Helpers
-;;
 
 ;;;###autoload
 (defun doom-active-minor-modes ()
@@ -57,7 +57,6 @@
 
 ;;
 ;; Commands
-;;
 
 ;;;###autoload
 (define-obsolete-function-alias 'doom/describe-setting 'doom/describe-setters "2.1.0")

@@ -35,7 +35,6 @@ be negative.")
 
 ;;
 ;; Packages
-;;
 
 (def-package! helm-mode
   :defer 1
@@ -163,11 +162,6 @@ be negative.")
 (setq helm-bookmark-show-location t)
 
 
-;; `helm-css-scss' -- https://github.com/ShingoFukuyama/helm-css-scss
-(setq helm-css-scss-split-direction #'split-window-vertically
-      helm-css-scss-split-with-multiple-windows t)
-
-
 ;; `helm-files'
 (after! helm-files
   (setq helm-boring-file-regexp-list
@@ -194,6 +188,7 @@ be negative.")
 
 
 ;; `swiper-helm'
-(setq swiper-helm-display-function
-      (lambda (buf &optional _resume) (pop-to-buffer buf)))
-
+(after! swiper-helm
+  (setq swiper-helm-display-function
+        (lambda (buf &optional _resume) (pop-to-buffer buf)))
+  (add-to-list 'swiper-font-lock-exclude #'+doom-dashboard-mode nil #'eq))

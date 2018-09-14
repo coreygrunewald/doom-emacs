@@ -28,29 +28,6 @@ the buffer is visible, then set another timer and try again later."
                    (let (kill-buffer-hook kill-buffer-query-functions)
                      (kill-buffer buffer))))))))))
 
-;;;###autoload
-(defun +popup--init (window &optional alist)
-  "Initializes a popup window. Run any time a popup is opened. It sets the
-default window parameters for popup windows, clears leftover transient timers
-and enables `+popup-buffer-mode'."
-  (with-selected-window window
-    (setq alist (delq (assq 'actions alist) alist))
-    (when (and alist +popup--populate-wparams)
-      ;; Emacs 26+ will automatically map the window-parameters alist entry to
-      ;; the popup window, so we need this for Emacs 25.x users
-      (dolist (param (cdr (assq 'window-parameters alist)))
-        (set-window-parameter window (car param) (cdr param))))
-    (set-window-parameter window 'popup t)
-    (set-window-parameter window 'delete-window #'+popup--delete-window)
-    (set-window-parameter window 'delete-other-windows #'+popup/close-all)
-    (set-window-dedicated-p window 'popup)
-    (window-preserve-size
-     window (memq (window-parameter window 'window-side)
-                  '(left right))
-     t)
-    (+popup-buffer-mode +1)
-    (run-hooks '+popup-create-window-hook)))
-
 (defun +popup--delete-window (window)
   "Do housekeeping before destroying a popup window.
 
@@ -94,6 +71,14 @@ and enables `+popup-buffer-mode'."
                          (run-at-time ttl nil #'+popup--kill-buffer
                                       buffer ttl))))))))))
 
+(defun +popup--delete-other-windows (window)
+  "Called in lieu of `delete-other-windows' in popup windows.
+
+Raises WINDOW (assumed to be a popup), then deletes other windows."
+  (when-let* ((window (+popup/raise window)))
+    (delete-other-windows window))
+  nil)
+
 (defun +popup--normalize-alist (alist)
   "Merge `+popup-default-alist' and `+popup-default-parameters' with ALIST."
   (when alist
@@ -118,10 +103,32 @@ and enables `+popup-buffer-mode'."
             parameters)
       alist)))
 
+;;;###autoload
+(defun +popup--init (window &optional alist)
+  "Initializes a popup window. Run any time a popup is opened. It sets the
+default window parameters for popup windows, clears leftover transient timers
+and enables `+popup-buffer-mode'."
+  (with-selected-window window
+    (setq alist (delq (assq 'actions alist) alist))
+    (when (and alist +popup--populate-wparams)
+      ;; Emacs 26+ will automatically map the window-parameters alist entry to
+      ;; the popup window, so we need this for Emacs 25.x users
+      (dolist (param (cdr (assq 'window-parameters alist)))
+        (set-window-parameter window (car param) (cdr param))))
+    (set-window-parameter window 'popup t)
+    (set-window-parameter window 'delete-window #'+popup--delete-window)
+    (set-window-parameter window 'delete-other-windows #'+popup--delete-other-windows)
+    (set-window-dedicated-p window 'popup)
+    (window-preserve-size
+     window (memq (window-parameter window 'window-side)
+                  '(left right))
+     t)
+    (+popup-buffer-mode +1)
+    (run-hooks '+popup-create-window-hook)))
+
 
 ;;
 ;; Public library
-;;
 
 ;;;###autoload
 (defun +popup-buffer-p (&optional buffer)
@@ -203,7 +210,6 @@ Uses `shrink-window-if-larger-than-buffer'."
 
 ;;
 ;; Hooks
-;;
 
 ;;;###autoload
 (defun +popup|adjust-fringes ()
@@ -283,7 +289,6 @@ Any non-nil value besides the above will be used as the raw value for
 
 ;;
 ;; Commands
-;;
 
 ;;;###autoload
 (defalias 'other-popup #'+popup/other)
@@ -374,13 +379,13 @@ the message buffer in a popup window."
   t)
 
 ;;;###autoload
-(defun +popup/raise ()
+(defun +popup/raise (window)
   "Raise the current popup window into a regular window."
-  (interactive)
-  (unless (+popup-window-p)
+  (interactive (list (selected-window)))
+  (cl-check-type window window)
+  (unless (+popup-window-p window)
     (user-error "Cannot raise a non-popup window"))
-  (let ((window (selected-window))
-        (buffer (current-buffer))
+  (let ((buffer (current-buffer))
         +popup--remember-last)
     (set-window-parameter window 'ttl nil)
     (+popup/close window 'force)
@@ -389,7 +394,6 @@ the message buffer in a popup window."
 
 ;;
 ;; Advice
-;;
 
 ;;;###autoload
 (defun +popup*close (&rest _)
@@ -547,7 +551,6 @@ Accepts the same arguments as `display-buffer-in-side-window'. You must set
 
 ;;
 ;; Emacs backwards compatibility
-;;
 
 (unless EMACS26+
   (defvar window-sides-reversed nil)

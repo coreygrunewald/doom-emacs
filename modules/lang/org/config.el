@@ -15,8 +15,7 @@
 
 
 ;;
-;; Plugins
-;;
+;; Packages
 
 ;; `toc-org'
 (setq toc-org-hrefify-default "org")
@@ -39,7 +38,6 @@
 
 ;;
 ;; Bootstrap
-;;
 
 (add-hook! 'org-load-hook
   #'(org-crypt-use-before-save-magic
@@ -68,7 +66,6 @@
 
 ;;
 ;; `org-mode' hooks
-;;
 
 (defun +org|unfold-to-2nd-level-or-point ()
   "My version of the 'overview' #+STARTUP option: expand first-level headings.
@@ -118,7 +115,6 @@ unfold to point on startup."
 
 ;;
 ;; `org-load' hooks
-;;
 
 (defun +org|setup-agenda ()
   (setq-default
@@ -176,6 +172,9 @@ unfold to point on startup."
    '((?a . error)
      (?b . warning)
      (?c . success))
+   org-refile-targets
+   '((nil :maxlevel . 3)
+     (org-agenda-files :maxlevel . 3))
    org-startup-folded t
    org-startup-indented t
    org-startup-with-inline-images nil
@@ -225,8 +224,10 @@ unfold to point on startup."
   (org-link-set-parameters
    "file"
    :face (lambda (path)
-           (unless (file-remote-p path)
-             (if (file-exists-p path) 'org-link 'error))))
+           (if (or (file-remote-p path)
+                   (file-exists-p path))
+               'org-link
+             'error)))
 
   (eval-when-compile
     (defmacro def-org-file-link! (key dir)
@@ -404,7 +405,6 @@ conditions where a window's buffer hasn't changed at the time this hook is run."
 
 ;;
 ;; Built-in libraries
-;;
 
 (def-package! org-crypt ; built-in
   :commands org-crypt-use-before-save-magic

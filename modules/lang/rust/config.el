@@ -7,14 +7,11 @@
 
   (map! :map rust-mode-map
         :localleader
-        :n "b" #'+rust/build-menu)
-
-  (def-menu! +rust/build-menu
-    "TODO"
-    '(("cargo run"   :exec "cargo run --color always")
-      ("cargo build" :exec "cargo build --color always")
-      ("cargo test"  :exec "cargo test --color always"))
-    :prompt "Cargo: "))
+        :prefix "b"
+        :n "b" (λ! (compile "cargo build --color always"))
+        :n "c" (λ! (compile "cargo check --color always"))
+        :n "r" (λ! (compile "cargo run --color always"))
+        :n "t" (λ! (compile "cargo test --color always"))))
 
 
 (def-package! racer

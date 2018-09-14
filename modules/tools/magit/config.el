@@ -12,8 +12,7 @@ available.")
 
 
 ;;
-;; Plugins
-;;
+;; Packages
 
 (def-package! magit
   :commands magit-file-delete
@@ -30,13 +29,24 @@ available.")
         magit-popup-display-buffer-action '((+magit-display-popup-buffer)))
 
   (set-popup-rule! "^\\(?:\\*magit\\|magit:\\)" :ignore t)
-  ;; so magit buffers can be switched to
-  (add-hook 'magit-mode-hook #'doom|mark-buffer-as-real)
+
+  ;; so magit buffers can be switched to (except for process buffers)
+  (defun +magit-buffer-p (buf)
+    (with-current-buffer buf
+      (and (derived-mode-p 'magit-mode)
+           (not (eq major-mode 'magit-process-mode)))))
+  (add-to-list 'doom-real-buffer-functions #'+magit-buffer-p nil #'eq)
+
   ;; modeline isn't helpful in magit
   (add-hook! '(magit-mode-hook magit-popup-mode-hook)
     #'hide-mode-line-mode)
+
   ;; properly kill leftover magit buffers on quit
   (define-key magit-status-mode-map [remap magit-mode-bury-buffer] #'+magit/quit)
+
+  ;; Don't replace the leader key
+  ;; FIXME remove me when general.el is integrated
+  (define-key magit-diff-mode-map (kbd doom-leader-key) nil)
 
   (defun +magit|update-vc ()
     "Update vc in all verson-controlled buffers when magit refreshes."
@@ -87,7 +97,7 @@ available.")
   (setq evil-magit-state 'normal
         evil-magit-use-z-for-folds t)
   :config
-  (define-key! magit-mode-map
+  (define-key! magit-mode-map ; replaced by z1, z2, z3, etc
     (kbd "M-1") nil
     (kbd "M-2") nil
     (kbd "M-3") nil

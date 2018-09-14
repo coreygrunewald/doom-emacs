@@ -68,11 +68,6 @@
       :m  "A-k"   #'+default:multi-previous-line
       :nv "C-SPC" #'+evil:fold-toggle
       :gnvimr "M-v" #'clipboard-yank
-      ;; Easier window navigation
-      :en "C-h"   #'evil-window-left
-      :en "C-j"   #'evil-window-down
-      :en "C-k"   #'evil-window-up
-      :en "C-l"   #'evil-window-right
 
       "C-x p"     #'+popup/other
       (:when IS-MAC
@@ -488,7 +483,6 @@
         [remap quit-window] #'kill-this-buffer))
 
 
-;;
 ;; <leader>
 ;;
 
@@ -729,7 +723,10 @@
           :desc "Send to Transmit"          :n "u" #'+macos/send-to-transmit
           :desc "Send project to Transmit"  :n "U" #'+macos/send-project-to-transmit
           :desc "Send to Launchbar"         :n "l" #'+macos/send-to-launchbar
-          :desc "Send project to Launchbar" :n "L" #'+macos/send-project-to-launchbar))
+          :desc "Send project to Launchbar" :n "L" #'+macos/send-project-to-launchbar)
+
+        (:when (featurep! :tools docker)
+          :desc "Docker"                    :n "D" #'docker))
 
       (:desc "project" :prefix "p"
         :desc "Browse project"          :n  "." #'+default/browse-project
@@ -764,7 +761,8 @@
           :desc "Insert snippet"        :nv "i" #'yas-insert-snippet
           :desc "Find snippet"          :n  "s" #'+default/find-in-snippets
           :desc "Find snippet for mode" :n  "S" #'+default/browse-snippets
-          :desc "Find global snippet"   :n  "/" #'yas-visit-snippet-file))
+          :desc "Find global snippet"   :n  "/" #'yas-visit-snippet-file
+          :desc "Reload snippets"       :n  "r" #'yas-reload-all))
 
       (:desc "toggle" :prefix "t"
         :desc "Flyspell"               :n "s" #'flyspell-mode
@@ -781,7 +779,6 @@
 
 ;;
 ;; Keybinding fixes
-;;
 
 ;; This section is dedicated to "fixing" certain keys so that they behave
 ;; sensibly (and consistently with similar contexts).
@@ -826,6 +823,9 @@
     "\C-a" #'move-beginning-of-line
     "\C-b" #'backward-word
     "\C-f" #'forward-word)
+
+  (after! man
+    (evil-define-key* 'normal Man-mode-map "q" #'kill-this-buffer))
 
   (after! view
     (define-key view-mode-map [escape] #'View-quit-all)))
