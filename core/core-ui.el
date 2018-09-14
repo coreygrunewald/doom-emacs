@@ -422,6 +422,11 @@ frame's window-system, the theme will be reloaded.")
 (add-to-list 'default-frame-alist '(menu-bar-lines 0))
 (add-to-list 'default-frame-alist '(vertical-scroll-bars))
 
+;; TODO: can this be removed in Emacs 27?
+(if (fboundp 'tool-bar-mode)   (tool-bar-mode -1))
+(if (fboundp 'menu-bar-mode)   (menu-bar-mode -1))
+(if (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
+
 ;; prompts the user for confirmation when deleting a non-empty frame
 (global-set-key [remap delete-frame] #'doom/delete-frame)
 
