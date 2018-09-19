@@ -17,12 +17,6 @@
   "Fallback font for unicode glyphs. Is ignored if :feature unicode is active.
 Expects a `font-spec'.")
 
-(defvar doom-major-mode-names
-  '((sh-mode . "sh")
-    (emacs-lisp-mode . "Elisp"))
-  "An alist mapping major modes symbols to strings (or functions that will
-return a string). This changes the 'long' name of a major-mode, allowing for
-shorter major mode name in the mode-line. See `doom|set-mode-name'.")
 
 ;;
 (defvar doom-init-ui-hook nil
@@ -140,15 +134,6 @@ shorter major mode name in the mode-line. See `doom|set-mode-name'.")
 ;;
 ;; Built-in packages
 
-;; show typed keystrokes in minibuffer
-(defun doom|enable-ui-keystrokes ()  (setq echo-keystrokes 0.02))
-(defun doom|disable-ui-keystrokes () (setq echo-keystrokes 0))
-(doom|enable-ui-keystrokes)
-;; ...but hide them while isearch is active
-(add-hook 'isearch-mode-hook     #'doom|disable-ui-keystrokes)
-(add-hook 'isearch-mode-end-hook #'doom|enable-ui-keystrokes)
-
-
 (def-package! hl-line ; built-in
   ;; Highlights the current line
   :hook ((prog-mode text-mode conf-mode) . hl-line-mode)
@@ -226,23 +211,6 @@ shorter major mode name in the mode-line. See `doom|set-mode-name'.")
         (newline-mark ?\n [?¬ ?\n])
         (space-mark ?\  [?·] [?.])))
 
-(defun doom|highlight-non-default-indentation ()
-  "Highlight whitespace that doesn't match your `indent-tabs-mode' setting."
-  (unless (or (bound-and-true-p global-whitespace-mode)
-              (bound-and-true-p whitespace-mode)
-              (eq indent-tabs-mode (default-value 'indent-tabs-mode))
-              (eq major-mode 'fundamental-mode)
-              (derived-mode-p 'special-mode))
-    (require 'whitespace)
-    (set (make-local-variable 'whitespace-style)
-         (if (or (bound-and-true-p whitespace-mode)
-                 (bound-and-true-p whitespace-newline-mode))
-             (cl-union (if indent-tabs-mode '(tabs tab-mark) '(spaces space-mark))
-                       whitespace-style)
-           `(face ,@(if indent-tabs-mode '(tabs tab-mark) '(spaces space-mark))
-             trailing-lines tail)))
-    (whitespace-mode +1)))
-
 
 ;;
 ;; Line numbers
@@ -250,11 +218,11 @@ shorter major mode name in the mode-line. See `doom|set-mode-name'.")
 ;; line numbers in most modes
 (add-hook! (prog-mode text-mode conf-mode) #'display-line-numbers-mode)
 
-;; Emacs 26+ has native line number support, and will ignore nlinum. This is for
-;; Emacs 25 users:
 (defun doom|enable-line-numbers ()  (display-line-numbers-mode +1))
 (defun doom|disable-line-numbers () (display-line-numbers-mode -1))
 
+;; Emacs 26+ has native line number support, and will ignore nlinum. This is for
+;; Emacs 25 users:
 (def-package! nlinum
   ;; Line number column. A faster (or equivalent, in the worst case) line number
   ;; plugin than `linum-mode'.
@@ -339,25 +307,27 @@ frame's window-system, the theme will be reloaded.")
 (defun doom|init-fonts ()
   "Initialize fonts."
   (condition-case e
-      (custom-set-faces
-       (when (fontp doom-font)
-         (let ((xlfd (font-xlfd-name doom-font)))
-           (add-to-list 'default-frame-alist (cons 'font xlfd))
-           `(fixed-pitch ((t (:font ,xlfd))))))
-       (when (fontp doom-variable-pitch-font)
-         `(variable-pitch ((t (:font ,(font-xlfd-name doom-variable-pitch-font))))))
-       ;; Fallback to `doom-unicode-font' for Unicode characters
-       (when (fontp doom-unicode-font)
-         (set-fontset-font t nil doom-unicode-font nil 'append)
-         nil))
+      (progn
+        (when doom-font
+          (add-to-list
+           'default-frame-alist
+           (cons 'font
+                 (cond ((stringp doom-font) doom-font)
+                       ((fontp doom-font) (font-xlfd-name doom-font))
+                       ((signal 'wrong-type-argument (list '(fontp stringp) doom-font)))))))
+        (when (fontp doom-variable-pitch-font)
+          (set-face-attribute 'variable-pitch t
+                              :width 'normal :weight 'normal :slant 'normal
+                              :font doom-variable-pitch-font))
+        ;; Fallback to `doom-unicode-font' for Unicode characters
+        (when (fontp doom-unicode-font)
+          (set-fontset-font t nil doom-unicode-font nil 'append)))
     ((debug error)
      (if (string-prefix-p "Font not available: " (error-message-string e))
          (lwarn 'doom-ui :warning
                 "Could not find the '%s' font on your system, falling back to system font"
                 (font-get (caddr e) :family))
-       (lwarn 'doom-ui :error
-              "Unexpected error while initializing fonts: %s"
-              (error-message-string e))))))
+       (signal 'doom-error e)))))
 
 (defun doom|init-theme ()
   "Set the theme and load the font, in that order."
@@ -400,10 +370,24 @@ frame's window-system, the theme will be reloaded.")
 
 ;; simple name in frame title
 (setq frame-title-format '("%b – Doom Emacs"))
+
 ;; relegate tooltips to echo area only
-(tooltip-mode -1)
-;; a good indicator that Emacs isn't frozen
-(add-hook 'doom-init-ui-hook #'blink-cursor-mode)
+(if (boundp 'tooltip-mode) (tooltip-mode -1))
+
+;; enabled by default; no thanks, too distracting
+(blink-cursor-mode -1)
+
+;; Handle ansi codes in compilation buffer
+(add-hook 'compilation-filter-hook #'doom|apply-ansi-color-to-compilation-buffer)
+
+;; show typed keystrokes in minibuffer
+(defun doom|enable-ui-keystrokes ()  (setq echo-keystrokes 0.02))
+(defun doom|disable-ui-keystrokes () (setq echo-keystrokes 0))
+(doom|enable-ui-keystrokes)
+;; ...but hide them while isearch is active
+(add-hook 'isearch-mode-hook     #'doom|disable-ui-keystrokes)
+(add-hook 'isearch-mode-end-hook #'doom|enable-ui-keystrokes)
+
 ;; Make `next-buffer', `other-buffer', etc. ignore unreal buffers.
 (add-to-list 'default-frame-alist '(buffer-predicate . doom-buffer-frame-predicate))
 ;; Prevent the glimpse of un-styled Emacs by setting these early.
@@ -419,20 +403,6 @@ frame's window-system, the theme will be reloaded.")
 ;; prompts the user for confirmation when deleting a non-empty frame
 (global-set-key [remap delete-frame] #'doom/delete-frame)
 
-(defun doom|no-fringes-in-minibuffer (&rest _)
-  "Disable fringes in the minibuffer window."
-  (set-window-fringes (minibuffer-window) 0 0 nil))
-(add-hook! '(doom-init-ui-hook minibuffer-setup-hook window-configuration-change-hook)
-  #'doom|no-fringes-in-minibuffer)
-
-(defun doom|set-mode-name ()
-  "Set the major mode's `mode-name', as dictated by `doom-major-mode-names'."
-  (when-let* ((name (cdr (assq major-mode doom-major-mode-names))))
-    (setq mode-name
-          (cond ((functionp name) (funcall name))
-                ((stringp name) name)
-                ((error "'%s' isn't a valid name for %s" name major-mode))))))
-
 (defun doom|protect-visible-buffer ()
   "Don't kill the current buffer if it is visible in another window (bury it
 instead). Meant for `kill-buffer-query-functions'."
@@ -443,13 +413,28 @@ instead). Meant for `kill-buffer-query-functions'."
   "Don't kill the scratch buffer. Meant for `kill-buffer-query-functions'."
   (not (eq (current-buffer) (doom-fallback-buffer))))
 
+(defun doom|highlight-non-default-indentation ()
+  "Highlight whitespace that doesn't match your `indent-tabs-mode' setting."
+  (unless (or (bound-and-true-p global-whitespace-mode)
+              (bound-and-true-p whitespace-mode)
+              (eq indent-tabs-mode (default-value 'indent-tabs-mode))
+              (eq major-mode 'fundamental-mode)
+              (derived-mode-p 'special-mode))
+    (require 'whitespace)
+    (set (make-local-variable 'whitespace-style)
+         (if (or (bound-and-true-p whitespace-mode)
+                 (bound-and-true-p whitespace-newline-mode))
+             (cl-union (if indent-tabs-mode '(tabs tab-mark) '(spaces space-mark))
+                       whitespace-style)
+           `(face ,@(if indent-tabs-mode '(tabs tab-mark) '(spaces space-mark))
+             trailing-lines tail)))
+    (whitespace-mode +1)))
+
 (defun doom|init-ui ()
   "Initialize Doom's user interface by applying all its advice and hooks."
   (add-to-list 'kill-buffer-query-functions #'doom|protect-fallback-buffer nil #'eq)
   (add-to-list 'kill-buffer-query-functions #'doom|protect-visible-buffer  nil #'eq)
-  (add-hook 'after-change-major-mode-hook #'doom|set-mode-name)
   (add-hook 'after-change-major-mode-hook #'doom|highlight-non-default-indentation)
-  (add-hook 'compilation-filter-hook #'doom|apply-ansi-color-to-compilation-buffer)
   (run-hook-wrapped 'doom-init-ui-hook #'doom-try-run-hook))
 
 (add-hook 'emacs-startup-hook #'doom|init-ui)

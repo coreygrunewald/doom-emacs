@@ -60,11 +60,6 @@ If any hook returns non-nil, all hooks after it are ignored.")
   (set-face-attribute 'which-key-local-map-description-face nil :weight 'bold)
   (which-key-setup-side-window-bottom)
   (setq-hook! 'which-key-init-buffer-hook line-spacing 3)
-  (defun doom*no-fringes-in-which-key-buffer (&rest _)
-    (doom|no-fringes-in-minibuffer)
-    (set-window-fringes (get-buffer-window which-key--buffer) 0 0 nil))
-  (advice-add 'which-key--show-buffer-side-window :after #'doom*no-fringes-in-which-key-buffer)
-
   (which-key-mode +1))
 
 
@@ -245,6 +240,16 @@ Example
               (unless (> (length rest) 0)
                 (user-error "map! has no definition for %s key" key))
               (setq def (pop rest))
+              (when (or (vectorp def)
+                        (stringp def))
+                (setq def
+                      `(lambda () (interactive)
+                         (setq unread-command-events
+                               (nconc (mapcar (lambda (ev) (cons t ev))
+                                              (listify-key-sequence
+                                               ,(cond ((vectorp def) def)
+                                                      ((stringp def) (kbd def)))))
+                                      unread-command-events)))))
               (when desc
                 (push `(doom--keybind-register ,(key-description (eval key))
                                                ,desc ',modes)
