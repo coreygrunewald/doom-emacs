@@ -97,6 +97,15 @@ immediately runs it on the current candidate (ending the ivy session)."
   ;;                                 counsel-projectile-switch-to-buffer))
   ;;  (ivy-set-display-transformer cmd '+ivy-buffer-transformer)))
 
+(def-package! ivy-rich
+  :hook (ivy-mode . ivy-rich-mode)
+  :config
+  ;; Show more buffer information in other switch-buffer commands too
+  (dolist (cmd '(ivy-switch-buffer +ivy/switch-workspace-buffer
+                                   counsel-projectile-switch-to-buffer))
+    (ivy-set-display-transformer cmd 'ivy-rich--ivy-switch-buffer-transformer)))
+
+
 (def-package! counsel
   :commands counsel-describe-face
   :init

@@ -1,21 +1,29 @@
 ;;; core-ui.el -*- lexical-binding: t; -*-
 
 (defvar doom-theme nil
-  "A symbol representing the color theme to load.")
+  "A symbol representing the Emacs theme to load at startup.
+
+This is changed when `load-theme' is used as well.")
 
 (defvar doom-font nil
-  "The default font to use. Expects a `font-spec'.")
+  "The default font to use. Expects either a `font-spec' or a XFT font string.
+
+Examples:
+  (setq doom-font (font-spec :family \"Fira Mono\" :size 12))
+  (setq doom-font \"Terminus (TTF):pixelsize=12:antialias=off\")")
 
 (defvar doom-big-font nil
-  "The default large font to use when `doom-big-font-mode' is enabled. Expects a
-`font-spec'.")
+  "The font to use when `doom-big-font-mode' is enabled. Expects either a
+`font-spec' or a XFT font string. See `doom-font' for examples.")
 
 (defvar doom-variable-pitch-font nil
-  "The default font to use for variable-pitch text. Expects a `font-spec'.")
+  "The font to use for variable-pitch text. Expects either a `font-spec'
+or a XFT font string. See `doom-font' for examples.")
 
 (defvar doom-unicode-font nil
   "Fallback font for unicode glyphs. Is ignored if :feature unicode is active.
-Expects a `font-spec'.")
+Expects either a `font-spec' or a XFT font string. See `doom-font' for
+examples.")
 
 
 ;;
@@ -100,7 +108,7 @@ Expects a `font-spec'.")
 
 ;; `highlight-numbers' --- better number literal fontification in code
 (def-package! highlight-numbers
-  :hook (prog-mode . highlight-numbers-mode)
+  :hook ((prog-mode conf-mode) . highlight-numbers-mode)
   :config (setq highlight-numbers-generic-regexp "\\_<[[:digit:]]+\\(?:\\.[0-9]*\\)?\\_>"))
 
 ;; `highlight-escape-sequences'
@@ -453,6 +461,16 @@ instead). Meant for `kill-buffer-query-functions'."
   (when (fboundp 'powerline-reset)
     (powerline-reset)))
 (advice-add #'load-theme :around #'doom*disable-old-themes-first)
+
+(defun doom*prefer-compiled-theme (orig-fn &rest args)
+  "Make `load-theme' prioritize the byte-compiled theme (if it exists) for a
+moderate boost in startup (or theme switch) time."
+  (cl-letf* ((old-locate-file (symbol-function 'locate-file))
+             ((symbol-function 'locate-file)
+              (lambda (filename path &optional _suffixes predicate)
+                (funcall old-locate-file filename path '("c" "") predicate))))
+    (apply orig-fn args)))
+(advice-add #'load-theme :around #'doom*prefer-compiled-theme)
 
 (defun doom|disable-whitespace-mode-in-childframes (frame)
   (when (frame-parameter frame 'parent-frame)

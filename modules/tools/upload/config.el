@@ -1,17 +1,16 @@
 ;;; tools/upload/config.el -*- lexical-binding: t; -*-
 
-;; Uses `ssh-deploy' to map a local folder to a remote one. Use
-;; `ssh-deploy-root-remote' and `ssh-deploy-root-local' to set up this mapping.
+;; Uses `ssh-deploy' to map a local folder to a remote one. Set
+;; `ssh-deploy-root-remote' and `ssh-deploy-root-local' in a .dir-locals.el file
+;; to establish this mapping.
 ;;
 ;; Example:
-;;   (setq ssh-deploy-root-local  "/home/hlissner/work/site/"
-;;         ssh-deploy-root-remote "/ssh:hlissner@myserver.com:/var/www/site/"
-;;         ssh-deploy-on-explicity-save t)
+;;   ((nil . ((ssh-deploy-root-local . "/local/path/to/project")
+;;            (ssh-deploy-root-remote . "/ssh:user@server:/remote/project/")
+;;            (ssh-deploy-on-explicity-save . t))))
 ;;
 ;; Note: `ssh-deploy-root-local' is optional, and will resort to
 ;; `doom-project-root' if unspecified.
-;;
-;; Can be used via .dir-locals.el file in your project.
 
 (def-package! ssh-deploy
   :commands (ssh-deploy-upload-handler
@@ -20,6 +19,15 @@
              ssh-deploy-browse-remote-handler
              ssh-deploy-remote-changes-handler)
   :init
+  ;; Make these safe as file-local variables
+  (dolist (sym '((ssh-deploy-root-local . stringp)
+                 (ssh-deploy-root-remote . stringp)
+                 (ssh-deploy-script . functionp)
+                 (ssh-deploy-on-explicitly-save . booleanp)
+                 (ssh-deploy-async . booleanp)
+                 (ssh-deploy-exclude-list . listp)))
+    (put (car sym) 'safe-local-variable (cdr sym)))
+
   ;; Maybe auto-upload on save
   (defun +upload|init-after-save ()
     (when (and (bound-and-true-p ssh-deploy-root-remote)

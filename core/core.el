@@ -25,7 +25,8 @@ line or use --debug-init to enable this.")
 
 
 ;;
-(defvar doom-emacs-dir user-emacs-directory
+(defvar doom-emacs-dir
+  (eval-when-compile (file-truename user-emacs-directory))
   "The path to this emacs.d directory. Must end in a slash.")
 
 (defvar doom-core-dir (concat doom-emacs-dir "core/")
@@ -57,14 +58,14 @@ Use this for files that change often, like cache files.")
   "Where the Doom manual is stored.")
 
 (defvar doom-private-dir
-  (eval-when-compile
-    (or (getenv "DOOMDIR")
+  (or (getenv "DOOMDIR")
+      (eval-when-compile
         (let ((xdg-path
                (expand-file-name "doom/"
                                  (or (getenv "XDG_CONFIG_HOME")
                                      "~/.config"))))
-          (if (file-directory-p xdg-path) xdg-path))
-        "~/.doom.d/"))
+          (if (file-directory-p xdg-path) xdg-path)))
+      "~/.doom.d/")
   "Where your private customizations are placed. Must end in a slash. Respects
 XDG directory conventions if ~/.config/doom exists.")
 
@@ -343,7 +344,8 @@ intervals."
           (when req
             (when doom-debug-mode
               (message "Incrementally loading %s" req))
-            (require req)
+            (unless (require req nil t)
+              (message "Failed to load '%s' package incrementally" req))
             (when reqs
               (run-with-idle-timer doom-incremental-idle-timer
                                    nil #'doom-load-packages-incrementally
