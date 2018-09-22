@@ -66,6 +66,8 @@ immediately runs it on the current candidate (ending the ivy session)."
 
   (ivy-mode +1)
 
+  ;; TODO: it appears that the text scale and window management hydras aren't bound to any keys!!!
+
   (def-package! ivy-hydra
     :commands (ivy-dispatching-done-hydra ivy--matcher-desc)
     :init
@@ -74,24 +76,26 @@ immediately runs it on the current candidate (ending the ivy session)."
       (kbd "M-o") #'ivy-dispatching-done-hydra)))
 
 ;; Show more buffer information in switch-buffer commands
-(def-package! ivy-rich
-  :after ivy
-  :config
-  (setq ivy-rich-path-style 'abbrev)
-  (setq ivy-rich--display-transformers-list
-        (plist-put ivy-rich--display-transformers-list
-                   '+ivy/switch-workspace-buffer
-                   '(:columns
-                    ((ivy-rich-candidate (:width 30))
-                     (ivy-rich-switch-buffer-size (:width 7))
-                     (ivy-rich-switch-buffer-indicators (:width 4 :face error :align right))
-                     (ivy-rich-switch-buffer-major-mode (:width 12 :face warning))
-                     (ivy-rich-switch-buffer-project (:width 15 :face success))
-                     (ivy-rich-switch-buffer-path (:width (lambda (x) (ivy-rich-switch-buffer-shorten-path x (ivy-rich-minibuffer-width 0.3))))))
-                    :predicate
-                    (lambda (cand) (get-buffer cand)))
-                   ))
-  (ivy-rich-mode +1))
+;; TODO: doom fixed ivy-rich support. make sure it works ok.
+;;(def-package! ivy-rich
+;;  :after ivy
+;;  :config
+;;  (setq ivy-rich-path-style 'abbrev)
+;;  (setq ivy-rich--display-transformers-list
+;;        (plist-put ivy-rich--display-transformers-list
+;;                   '+ivy/switch-workspace-buffer
+;;                   '(:columns
+;;                    ((ivy-rich-candidate (:width 30))
+;;                     (ivy-rich-switch-buffer-size (:width 7))
+;;                     (ivy-rich-switch-buffer-indicators (:width 4 :face error :align right))
+;;                     (ivy-rich-switch-buffer-major-mode (:width 12 :face warning))
+;;                     (ivy-rich-switch-buffer-project (:width 15 :face success))
+;;                     (ivy-rich-switch-buffer-path (:width (lambda (x) (ivy-rich-switch-buffer-shorten-path x (ivy-rich-minibuffer-width 0.3))))))
+;;                    :predicate
+;;                    (lambda (cand) (get-buffer cand)))
+;;                   ))
+;;  (ivy-rich-mode +1))
+
 ;; TODO: counsel-projectile-switch-to-buffer doesn't appear to work correctly
   ;;(dolist (cmd '(ivy-switch-buffer +ivy/switch-workspace-buffer
   ;;                                 counsel-projectile-switch-to-buffer))
