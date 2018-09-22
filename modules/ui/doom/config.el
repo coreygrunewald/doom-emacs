@@ -41,6 +41,7 @@
     (setq doom-treemacs-enable-variable-pitch t)))
 
 
+;; TODO: what does this actually do? It breaks most non-doom themes!!!
 (def-package! solaire-mode
   :defer t
   :init
