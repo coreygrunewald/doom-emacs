@@ -48,6 +48,7 @@
   (defun +doom|solaire-mode-swap-bg-maybe ()
     (when-let* ((rule (assq doom-theme +doom-solaire-themes)))
       (require 'solaire-mode)
+      ;; TODO: this seems to be getting executed incorrectly!
       (if (cdr rule) (solaire-mode-swap-bg))))
   (add-hook 'doom-load-theme-hook #'+doom|solaire-mode-swap-bg-maybe t)
   :config
