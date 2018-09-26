@@ -38,14 +38,23 @@
 
 ;;;###autoload
 (defun +evil/fold-toggle ()
+  "Toggle the fold at point.
+
+Targets `vimmish-fold', `hideshow' and `outline' folds."
   (interactive)
   (save-excursion
     (cond ((+evil--vimish-fold-p) (vimish-fold-toggle))
           ((+evil--hideshow-fold-p) (+evil-from-eol (hs-toggle-hiding)))
-          ((+evil--outline-fold-p) (outline-toggle-children)))))
+          ((+evil--outline-fold-p)
+           (cl-letf (((symbol-function #'outline-hide-subtree)
+                      (symbol-function #'outline-hide-entry)))
+             (outline-toggle-children))))))
 
 ;;;###autoload
 (defun +evil/fold-open ()
+  "Open the folded region at point.
+
+Targets `vimmish-fold', `hideshow' and `outline' folds."
   (interactive)
   (save-excursion
     (cond ((+evil--vimish-fold-p) (vimish-fold-unfold))
@@ -56,6 +65,9 @@
 
 ;;;###autoload
 (defun +evil/fold-close ()
+  "Close the folded region at point.
+
+Targets `vimmish-fold', `hideshow' and `outline' folds."
   (interactive)
   (save-excursion
     (cond ((+evil--vimish-fold-p) (vimish-fold-refold))
@@ -87,15 +99,10 @@
   (save-excursion
     (when (featurep 'vimish-fold)
       (vimish-fold-refold-all))
-    (if (integerp level)
-        (progn
-          (when (fboundp 'outline-hide-sublevels)
-            (outline-hide-sublevels (max 1 (1- level))))
-          (hs-life-goes-on
-           (hs-hide-level-recursive (1- level) (point-min) (point-max))))
-      (when (fboundp 'outline-hide-sublevels)
-        (outline-hide-sublevels 1))
-      (hs-hide-all))))
+    (hs-life-goes-on
+     (if (integerp level)
+         (hs-hide-level-recursive (1- level) (point-min) (point-max))
+       (hs-hide-all)))))
 
 (defun +evil--invisible-points (count)
   (let (points)

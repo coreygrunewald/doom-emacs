@@ -55,6 +55,8 @@ Currently available functions:
 
 ;; Otherwise appended segments will produce *Invalid*
 (setq global-mode-string '(""))
+;; We handle this ourselves
+(setq projectile-dynamic-mode-line nil)
 
 ;;
 (defvar +modeline--vspc (propertize " " 'face 'variable-pitch))
@@ -258,7 +260,8 @@ use `buffer-name'."
         (propertize "%s" 'face 'doom-modeline-buffer-path)
       (cl-loop for spec in (funcall +modeline-buffer-path-function)
                if (stringp spec) concat spec
-               else concat (propertize (car spec) 'face (cdr spec))))))
+               else if (not (null spec))
+               concat (propertize (car spec) 'face (cdr spec))))))
 
 
 ;;
@@ -269,16 +272,18 @@ use `buffer-name'."
 parent.
 
 e.g. project/src/lib/file.c"
-  (let* ((project-root (doom-project-root))
-         (true-filename (file-truename buffer-file-name))
-         (relative-dirs (file-relative-name (file-name-directory true-filename)
-                                            (file-truename project-root))))
-    (list (cons (concat (doom-project-name) "/")
-                'doom-modeline-buffer-project-root)
-          (cons (if (equal "./" relative-dirs) "" relative-dirs)
-                'doom-modeline-buffer-path)
-          (cons (file-name-nondirectory true-filename)
-                'doom-modeline-buffer-file))))
+  (let ((filename (or buffer-file-truename (file-truename buffer-file-name))))
+    (append (if (doom-project-p)
+                (let* ((project-root (doom-project-root))
+                       (relative-dirs (file-relative-name (file-name-directory filename)
+                                                          (file-truename project-root))))
+                  (list (cons (concat (doom-project-name) "/")
+                              'doom-modeline-buffer-project-root)
+                        (unless (equal "./" relative-dirs)
+                          (cons relative-dirs 'doom-modeline-buffer-path))))
+              (list nil (cons (file-name-directory filename) 'doom-modeline-buffer-path)))
+            (list (cons (file-name-nondirectory filename)
+                        'doom-modeline-buffer-file)))))
 
 (defun +modeline-file-path-from-project ()
   "Returns file path relative to the project root.

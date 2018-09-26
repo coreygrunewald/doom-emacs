@@ -7,10 +7,9 @@
 (defmacro without-project-cache! (&rest body)
   "Run BODY with projectile's project-root cache disabled. This is necessary if
 you want to interactive with a project other than the one you're in."
-  `(let (projectile-project-name
-         projectile-require-project-root
-         projectile-cached-buffer-file-name
-         projectile-cached-project-root)
+  `(let ((projectile-project-root-cache (make-hash-table :test 'equal))
+         projectile-project-name
+         projectile-require-project-root)
      ,@body))
 
 ;;;###autoload
@@ -30,7 +29,7 @@ they are absolute."
   "Reload the project root cache."
   (interactive)
   (projectile-invalidate-cache nil)
-  (projectile-reset-cached-project-root)
+  (setq-default projectile-project-root nil)
   (dolist (fn projectile-project-root-files-functions)
     (remhash (format "%s-%s" fn default-directory) projectile-project-root-cache)))
 
@@ -62,7 +61,10 @@ If NOCACHE, don't fetch a cached answer."
   (if nocache
       (without-project-cache! (doom-project-root nil))
     (let (projectile-require-project-root)
-      (projectile-project-root))))
+      ;; NOTE `projectile-project-root' should return default-directory if we're
+      ;; not in a project. Seems to be a bug upstream.
+      (or (projectile-project-root)
+          default-directory))))
 
 ;;;###autoload
 (defalias 'doom-project-expand #'projectile-expand-root)
