@@ -59,12 +59,11 @@ Use this for files that change often, like cache files.")
 
 (defvar doom-private-dir
   (or (getenv "DOOMDIR")
-      (eval-when-compile
-        (let ((xdg-path
-               (expand-file-name "doom/"
-                                 (or (getenv "XDG_CONFIG_HOME")
-                                     "~/.config"))))
-          (if (file-directory-p xdg-path) xdg-path)))
+      (let ((xdg-path
+             (expand-file-name "doom/"
+                               (or (getenv "XDG_CONFIG_HOME")
+                                   "~/.config"))))
+        (if (file-directory-p xdg-path) xdg-path))
       "~/.doom.d/")
   "Where your private customizations are placed. Must end in a slash. Respects
 XDG directory conventions if ~/.config/doom exists.")
@@ -292,13 +291,24 @@ original value of `symbol-file'."
       (funcall orig-fn symbol type)))
 (advice-add #'symbol-file :around #'doom*symbol-file)
 
-;; Don't garbage collect to speed up minibuffer commands
+;; To speed up minibuffer commands (like helm and ivy), defer garbage collection
+;; when the minibuffer is active. It may mean a pause when finished, but that's
+;; acceptable instead of pauses during.
 (defun doom|defer-garbage-collection ()
   (setq gc-cons-threshold doom-gc-cons-upper-limit))
 (defun doom|restore-garbage-collection ()
   (setq gc-cons-threshold doom-gc-cons-threshold))
 (add-hook 'minibuffer-setup-hook #'doom|defer-garbage-collection)
 (add-hook 'minibuffer-exit-hook  #'doom|restore-garbage-collection)
+
+;; File+dir local variables are initialized after the major mode and its hooks
+;; have run. If you want hook functions to be aware of these customizations, add
+;; them to MODE-local-vars-hook instead.
+(defun doom|run-local-var-hooks ()
+  "Run MODE-local-vars-hook after local variables are initialized."
+  (run-hook-wrapped (intern-soft (format "%s-local-vars-hook" major-mode))
+                    #'doom-try-run-hook))
+(add-hook 'hack-local-variables-hook #'doom|run-local-var-hooks)
 
 
 ;;
@@ -339,7 +349,7 @@ intervals."
     (when packages
       (let ((gc-cons-threshold doom-gc-cons-upper-limit)
             file-name-handler-alist)
-        (let* ((reqs (cl-remove-if #'featurep packages))
+        (let* ((reqs (cl-delete-if #'featurep packages))
                (req (ignore-errors (pop reqs))))
           (when req
             (when doom-debug-mode

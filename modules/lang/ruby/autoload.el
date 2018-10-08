@@ -27,7 +27,7 @@ pipenv, unless those tools have modified the PATH that Emacs picked up when you
 started it."
   (condition-case _
       (let ((version-str (car (process-lines "ruby" "--version"))))
-        (puthash (doom-project-root)
+        (puthash (or (doom-project-root) default-directory)
                  (format "Ruby %s" (cadr (split-string version-str " ")))
                  +ruby-version-cache))
     (error "Ruby")))
@@ -40,11 +40,12 @@ started it."
 (defun +ruby|update-version (&rest _)
   "Update `+ruby--version' by consulting `+ruby-version' function."
   (setq +ruby--version
-        (or (gethash (doom-project-root) +python-version-cache)
+        (or (gethash (or (doom-project-root) default-directory)
+                     +ruby-version-cache)
             (+ruby-version))))
 
 ;;;###autoload
-(defun +ruby|update-version-in-all-buffers ()
+(defun +ruby|update-version-in-all-buffers (&rest )
   "Update `+ruby--version' in all `enh-ruby-mode' buffers."
   (dolist (buffer (doom-buffers-in-mode 'enh-ruby-mode))
     (setq +ruby-version-cache (clrhash +ruby-version-cache))

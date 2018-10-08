@@ -549,11 +549,12 @@ This be hooked to `projectile-after-switch-project-hook'."
     (setq +workspaces--project-dir dir))
   (when (and persp-mode +workspaces--project-dir)
     (unwind-protect
-        (if (+workspace-buffer-list)
+        (if (and (not (null +workspaces-on-switch-project-behavior))
+                 (or (eq +workspaces-on-switch-project-behavior t)
+                     (+workspace-buffer-list)))
             (let* (persp-p
                    (persp
-                    (let* ((default-directory +workspaces--project-dir)
-                           (project-name (doom-project-name 'nocache)))
+                    (let ((project-name (doom-project-name +workspaces--project-dir)))
                       (or (setq persp-p (+workspace-get project-name t))
                           (+workspace-new project-name))))
                    (new-name (persp-name persp)))
@@ -569,7 +570,7 @@ This be hooked to `projectile-after-switch-project-hook'."
                'success))
           (with-current-buffer (switch-to-buffer (doom-fallback-buffer))
             (setq default-directory +workspaces--project-dir)
-            (message "Switched to '%s'" (doom-project-name 'nocache)))
+            (message "Switched to '%s'" (doom-project-name +workspaces--project-dir)))
           (unless current-prefix-arg
             (funcall +workspaces-switch-project-function +workspaces--project-dir)))
       (setq +workspaces--project-dir nil))))

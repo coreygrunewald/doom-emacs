@@ -1,6 +1,6 @@
 ;;; core-editor.el -*- lexical-binding: t; -*-
 
-(defvar doom-large-file-size 1
+(defvar doom-large-file-size 2
   "Size (in MB) above which the user will be prompted to open the file literally
 to avoid performance issues. Opening literally means that no major or minor
 modes are active and the buffer is read-only.")
@@ -8,7 +8,7 @@ modes are active and the buffer is read-only.")
 (defvar doom-large-file-modes-list
   '(fundamental-mode special-mode archive-mode tar-mode jka-compr
     git-commit-mode image-mode doc-view-mode doc-view-mode-maybe
-    ebrowse-tree-mode pdf-view-mode)
+    ebrowse-tree-mode pdf-view-mode tags-table-mode)
   "Major modes that `doom|check-large-file' will ignore.")
 
 (defvar-local doom-inhibit-indent-detection nil
@@ -268,10 +268,12 @@ savehist file."
   (advice-add #'undo-tree-save-history :around #'doom*compress-undo-tree-history))
 
 
-;; `command-log-mode'
-(setq command-log-mode-auto-show t
-      command-log-mode-open-log-turns-on-mode t
-      command-log-mode-is-global t)
+(def-package! command-log-mode
+  :commands global-command-log-mode
+  :config
+  (setq command-log-mode-auto-show t
+        command-log-mode-open-log-turns-on-mode nil
+        command-log-mode-is-global t))
 
 
 (def-package! expand-region
@@ -295,7 +297,7 @@ savehist file."
 
 (def-package! ws-butler
   ;; a less intrusive `delete-trailing-whitespaces' on save
-  :after-call (after-find-file) 
+  :after-call (after-find-file)
   :config
   (setq ws-butler-global-exempt-modes
         (append ws-butler-global-exempt-modes

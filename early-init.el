@@ -11,7 +11,7 @@
 ;; initialization, so we must prevent Emacs from doing it early!
 (setq package-enable-at-startup nil)
 
-;; Prevent the glimpse of un-styled Emacs by setting these early.
+<<<<<<< HEAD
 (add-to-list 'default-frame-alist '(tool-bar-lines 0))
 (add-to-list 'default-frame-alist '(menu-bar-lines 0))
 ;; TODO: why were vertical scrollbars added?

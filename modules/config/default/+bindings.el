@@ -97,6 +97,8 @@
       :n  "gr" #'+eval:region
       :n  "gR" #'+eval/buffer
       :v  "gR" #'+eval:replace-region
+      :nv "g-" #'+evil:narrow-buffer
+      :n  "g=" #'widen
       :v  "@"  #'+evil:apply-macro
       :n  "g@" #'+evil:apply-macro
       ;; repeat in visual mode (FIXME buggy)
@@ -584,11 +586,14 @@
           :desc "Switch buffer"           :n "b" #'switch-to-buffer)
         :desc "Kill buffer"             :n "k" #'kill-this-buffer
         :desc "Kill other buffers"      :n "o" #'doom/kill-other-buffers
+        :desc "Toggle narrowing"        :nv "-" #'doom/clone-and-narrow-buffer
+        :desc "Next buffer"             :n "n" #'next-buffer
+        :desc "Previous buffer"         :n "p" #'previous-buffer
+        :desc "Next buffer"             :n "]" #'next-buffer
+        :desc "Previous buffer"         :n "[" #'previous-buffer
         :desc "Save buffer"             :n "s" #'save-buffer
         :desc "Pop scratch buffer"      :n "x" #'doom/open-scratch-buffer
         :desc "Bury buffer"             :n "z" #'bury-buffer
-        :desc "Next buffer"             :n "]" #'next-buffer
-        :desc "Previous buffer"         :n "[" #'previous-buffer
         :desc "Sudo edit this file"     :n "S" #'doom/sudo-this-file)
 
       (:desc "code" :prefix "c"
@@ -660,7 +665,7 @@
         :desc "Describe key"          :n  "k" #'describe-key
         :desc "Find documentation"    :n  "K" #'+lookup/documentation
         :desc "Find library"          :n  "l" #'find-library
-        :desc "Command log"           :n  "L" #'clm/toggle-command-log-buffer
+        :desc "Command log"           :n  "L" #'global-command-log-mode
         :desc "View *Messages*"       :n  "m" #'view-echo-area-messages
         :desc "Describe mode"         :n  "M" #'describe-mode
         :desc "Toggle profiler"       :n  "p" #'doom/toggle-profiler

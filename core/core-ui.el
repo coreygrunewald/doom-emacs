@@ -6,7 +6,12 @@
 This is changed when `load-theme' is used as well.")
 
 (defvar doom-font nil
-  "The default font to use. Expects either a `font-spec' or a XFT font string.
+  "The default font to use.
+
+Expects either a `font-spec', font object, an XFT font string or an XLFD font
+string.
+
+This affects the `default' and `fixed-pitch' faces.
 
 Examples:
   (setq doom-font (font-spec :family \"Fira Mono\" :size 12))
@@ -17,13 +22,31 @@ Examples:
 `font-spec' or a XFT font string. See `doom-font' for examples.")
 
 (defvar doom-variable-pitch-font nil
-  "The font to use for variable-pitch text. Expects either a `font-spec'
-or a XFT font string. See `doom-font' for examples.")
+  "The font to use for variable-pitch text.
+
+Expects either a `font-spec', font object, a XFT font string or XLFD string. See
+`doom-font' for examples.
+
+It is recommended you don't set specify a font-size, as to inherit `doom-font's
+size.")
+
+(defvar doom-serif-font nil
+  "The default font to use for the `fixed-pitch-serif' face.
+
+Expects either a `font-spec', font object, a XFT font string or XLFD string. See
+`doom-font' for examples.
+
+It is recommended you don't set specify a font-size, as to inherit `doom-font's
+size.")
 
 (defvar doom-unicode-font nil
   "Fallback font for unicode glyphs. Is ignored if :feature unicode is active.
-Expects either a `font-spec' or a XFT font string. See `doom-font' for
-examples.")
+
+Expects either a `font-spec', font object, a XFT font string or XLFD string. See
+`doom-font' for examples.
+
+It is recommended you don't set specify a font-size, as to inherit `doom-font's
+size.")
 
 
 ;;
@@ -316,17 +339,21 @@ frame's window-system, the theme will be reloaded.")
   "Initialize fonts."
   (condition-case e
       (progn
-        (when doom-font
-          (add-to-list
-           'default-frame-alist
-           (cons 'font
-                 (cond ((stringp doom-font) doom-font)
-                       ((fontp doom-font) (font-xlfd-name doom-font))
-                       ((signal 'wrong-type-argument (list '(fontp stringp) doom-font)))))))
-        (when (fontp doom-variable-pitch-font)
-          (set-face-attribute 'variable-pitch t
-                              :width 'normal :weight 'normal :slant 'normal
-                              :font doom-variable-pitch-font))
+        (cond (doom-font
+               ;; We avoid `set-frame-font' for performance reasons.
+               ;; Manipulating `default-frame-alist' is effective enough.
+               (add-to-list
+                'default-frame-alist
+                (cons 'font
+                      (cond ((stringp doom-font) doom-font)
+                            ((fontp doom-font) (font-xlfd-name doom-font))
+                            ((signal 'wrong-type-argument (list '(fontp stringp) doom-font)))))))
+              ((display-graphic-p)
+               (setq doom-font (face-attribute 'default :font))))
+        (when doom-serif-font
+          (set-face-attribute 'fixed-pitch-serif nil :font doom-serif-font))
+        (when doom-variable-pitch-font
+          (set-face-attribute 'variable-pitch nil :font doom-variable-pitch-font))
         ;; Fallback to `doom-unicode-font' for Unicode characters
         (when (fontp doom-unicode-font)
           (set-fontset-font t nil doom-unicode-font nil 'append)))
@@ -399,8 +426,8 @@ frame's window-system, the theme will be reloaded.")
 ;; Make `next-buffer', `other-buffer', etc. ignore unreal buffers.
 (add-to-list 'default-frame-alist '(buffer-predicate . doom-buffer-frame-predicate))
 ;; Prevent the glimpse of un-styled Emacs by setting these early.
-(add-to-list 'default-frame-alist '(tool-bar-lines 0))
-(add-to-list 'default-frame-alist '(menu-bar-lines 0))
+(add-to-list 'default-frame-alist '(tool-bar-lines . 0))
+(add-to-list 'default-frame-alist '(menu-bar-lines . 0))
 (add-to-list 'default-frame-alist '(vertical-scroll-bars))
 
 ;; TODO: can this be removed in Emacs 27?
@@ -473,15 +500,17 @@ moderate boost in startup (or theme switch) time."
 (advice-add #'load-theme :around #'doom*prefer-compiled-theme)
 
 (defun doom|disable-whitespace-mode-in-childframes (frame)
+  "`whitespace-mode' inundates child frames with whitspace markers, so disable
+it to fix all that visual noise."
   (when (frame-parameter frame 'parent-frame)
     (with-selected-frame frame
       (setq-local whitespace-style nil)
       frame)))
 (add-hook 'after-make-frame-functions #'doom|disable-whitespace-mode-in-childframes)
 
-;; Disruptive motion errors take over the minibuffer while we're typing there;
-;; prevent this from happening.
 (defun doom*silence-motion-errors (orig-fn &rest args)
+  "Prevent disruptive motion errors taking over the minibuffer while we're in
+it."
   (if (not (minibufferp))
       (apply orig-fn args)
     (ignore-errors (apply orig-fn args))

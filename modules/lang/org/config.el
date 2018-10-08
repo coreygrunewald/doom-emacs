@@ -3,8 +3,8 @@
 ;; FIXME deprecated
 (define-obsolete-variable-alias '+org-dir 'org-directory "2.1.0")
 
+;; Changed org defaults (should be set before org loads)
 (defvar org-directory "~/org/")
-
 (defvar org-modules
   '(org-w3m
     ;; org-bbdb
@@ -133,6 +133,8 @@ unfold to point on startup."
 ;; `org-load' hooks
 
 (defun +org|setup-agenda ()
+  (unless org-agenda-files
+    (setq org-agenda-files (list org-directory)))
   (setq-default
    org-agenda-dim-blocked-tasks nil
    org-agenda-inhibit-startup t
@@ -198,7 +200,12 @@ unfold to point on startup."
    org-todo-keywords
    '((sequence "[ ](t)" "[-](p)" "[?](m)" "|" "[X](d)")
      (sequence "TODO(T)" "|" "DONE(D)")
-     (sequence "NEXT(n)" "ACTIVE(a)" "WAITING(w)" "LATER(l)" "|" "CANCELLED(c)"))
+     (sequence "NEXT(n)" "WAITING(w)" "LATER(l)" "|" "CANCELLED(c)"))
+   org-todo-keyword-faces
+   '(("[-]" :inherit font-lock-constant-face :weight bold)
+     ("[?]" :inherit warning :weight bold)
+     ("WAITING" :inherit default :weight bold)
+     ("LATER" :inherit warning :weight bold))
    org-use-sub-superscripts '{}
 
    ;; Scale up LaTeX previews a bit (default is too small)
@@ -354,7 +361,7 @@ between the two."
         :localleader
         :n "d" #'org-deadline
         :n "t" #'org-todo
-        (:desc "clock" :prefix "c"
+        (:prefix "c"
           :n "c" #'org-clock-in
           :n "C" #'org-clock-out
           :n "g" #'org-clock-goto
@@ -384,7 +391,7 @@ conditions where a window's buffer hasn't changed at the time this hook is run."
   ;; Fix variable height org-level-N faces in the eldoc string
   (defun +org*format-outline-path (orig-fn path &optional width prefix separator)
     (let ((result (funcall orig-fn path width prefix separator))
-          (seperator (or separator "/")))
+          (separator (or separator "/")))
       (string-join
        (cl-loop for part
                 in (split-string (substring-no-properties result) separator)
@@ -441,6 +448,7 @@ conditions where a window's buffer hasn't changed at the time this hook is run."
   :config
   (add-hook 'kill-emacs-hook #'org-clock-save))
 
-;;
+
+;; In case org has already been loaded (or you're running `doom/reload')
 (when (featurep 'org)
   (run-hooks 'org-load-hook))

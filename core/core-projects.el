@@ -7,7 +7,7 @@
   (setq projectile-cache-file (concat doom-cache-dir "projectile.cache")
         projectile-enable-caching (not noninteractive)
         projectile-known-projects-file (concat doom-cache-dir "projectile.projects")
-        projectile-require-project-root nil
+        projectile-require-project-root t
         projectile-globally-ignored-files '(".DS_Store" "Icon" "TAGS")
         projectile-globally-ignored-file-suffixes '(".elc" ".pyc" ".o")
         projectile-ignored-projects '("~/" "/tmp"))
@@ -34,8 +34,8 @@
 
   ;; It breaks projectile's project root resolution if HOME is a project (e.g.
   ;; it's a git repo). In that case, we disable bottom-up root searching to
-  ;; prevent issues. This makes project resolution a little slower and may cause
-  ;; incorrect project roots in other edge cases.
+  ;; prevent issues. This makes project resolution a little slower and less
+  ;; accurate in some cases.
   (let ((default-directory "~"))
     (when (cl-find-if #'projectile-file-exists-p
                       projectile-project-root-files-bottom-up)
@@ -47,19 +47,12 @@
 
   ;; Projectile root-searching functions can cause an infinite loop on TRAMP
   ;; connections, so disable them.
+  ;; TODO Is this still necessary?
   (defun doom*projectile-locate-dominating-file (orig-fn file name)
     "Don't traverse the file system if on a remote connection."
     (unless (file-remote-p default-directory)
       (funcall orig-fn file name)))
-  (advice-add #'projectile-locate-dominating-file :around #'doom*projectile-locate-dominating-file)
-
-  (defun doom*projectile-cache-current-file (orig-fn)
-    "Don't cache ignored files."
-    (unless (cl-loop for path in (projectile-ignored-directories)
-                     if (string-prefix-p (or buffer-file-name "") (expand-file-name path))
-                     return t)
-      (funcall orig-fn)))
-  (advice-add #'projectile-cache-current-file :around #'doom*projectile-cache-current-file))
+  (advice-add #'projectile-locate-dominating-file :around #'doom*projectile-locate-dominating-file))
 
 
 ;;
