@@ -1,16 +1,22 @@
 ;;; lang/common-lisp/config.el -*- lexical-binding: t; -*-
 
+(defvar inferior-lisp-program "sbcl")
 (add-hook 'lisp-mode-hook #'rainbow-delimiters-mode)
 
+
 (after! sly
-  (setq inferior-lisp-program "sbcl")
+  (setq sly-mrepl-history-file-name (concat doom-cache-dir "sly-mrepl-history")
+        sly-kill-without-query-p t
+        sly-net-coding-system 'utf-8-unix)
 
   (set-popup-rules!
     '(("^\\*sly-mrepl"       :vslot 2 :quit nil :ttl nil)
-      ("^\\*sly-db"          :vslot 3 :quit nil :ttl nil)
-      ("^\\*sly-compilation" :vslot 4 :ttl nil)
-      ("^\\*sly-inspector"   :vslot 5 :ttl nil)
-      ("^\\*sly-traces"      :vslot 6 :ttl nil)))
+      ("^\\*sly-compilation" :vslot 3 :ttl nil)
+      ("^\\*sly-traces"      :vslot 4 :ttl nil)))
+
+  ;; Do not display debugger or inspector buffers in a popup window.
+  ;; These buffers are meant to be displayed with sufficient vertical space.
+  (set-popup-rule! "^\\*sly-\\(db\\|inspector\\)" :ignore t)
 
   (set-repl-handler! 'lisp-mode #'sly-mrepl)
   (set-eval-handler! 'lisp-mode #'sly-eval-region)
