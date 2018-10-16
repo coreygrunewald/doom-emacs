@@ -129,7 +129,9 @@
     (if (executable-find "node")
         (tide-setup)
       (message "Couldn't find `node', aborting tide server")))
-  (add-hook! (js2-mode typescript-mode) #'+javascript|init-tide)
+  ;; NOTE: Only enable tide in typescript mode!
+  ;;(add-hook! (js2-mode typescript-mode) #'+javascript|init-tide)
+  (add-hook! typescript-mode #'+javascript|init-tide)
 
   (defun +javascript|init-tide-in-web-mode ()
     "Enable `tide-mode' if in a *.tsx file."
