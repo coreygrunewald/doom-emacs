@@ -24,26 +24,8 @@ temporary/special buffers in `font-lock-comment-face'."
                             default-directory)))
                   'font-lock-doc-face)))))
 
-
 ;;
 ;; Library
-
-;;;###autoload
-(defun +ivy-projectile-find-file-transformer (str)
-  "Highlight entries that have been visited. This is the opposite of
-`counsel-projectile-find-file'."
-  (cond ((get-file-buffer (projectile-expand-root str))
-         (propertize str 'face '(:weight ultra-bold :slant italic)))
-        (t str)))
-
-;;;###autoload
-(defun +ivy-recentf-transformer (str)
-  "Dim recentf entries that are not in the current project of the buffer you
-started `counsel-recentf' from. Also uses `abbreviate-file-name'."
-  (let ((str (abbreviate-file-name str)))
-    (if (file-in-directory-p str (doom-project-root))
-        str
-      (propertize str 'face 'ivy-virtual))))
 
 ;;;###autoload
 ;;(defun +ivy-buffer-transformer (str)
