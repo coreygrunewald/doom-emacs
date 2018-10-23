@@ -61,7 +61,29 @@
     ;; org links to pdf files are opened in pdf-view-mode
     (add-to-list 'org-file-apps '("\\.pdf\\'" . (lambda (_file link) (org-pdfview-open link)))) 
     ;; support for links to specific pages
-    (add-to-list 'org-file-apps '("\\.pdf::\\([[:digit:]]+\\)\\'" . (lambda (_file link) (org-pdfview-open link)))))) 
+    (add-to-list 'org-file-apps '("\\.pdf::\\([[:digit:]]+\\)\\'" . (lambda (_file link) (org-pdfview-open link))))))
+
+(def-package! org-yt
+  :after org
+  :config
+  (defun +org-inline-data-image (_protocol link _description)
+    "Interpret LINK as base64-encoded image data."
+    (base64-decode-string link))
+
+  (defun +org-image-link (protocol link _description)
+    "Interpret LINK as base64-encoded image data."
+    (when (image-type-from-file-name link)
+      (if-let* ((buf (url-retrieve-synchronously (concat protocol ":" link))))
+          (with-current-buffer buf
+            (goto-char (point-min))
+            (re-search-forward "\r?\n\r?\n" nil t)
+            (buffer-substring-no-properties (point) (point-max)))
+        (message "Download of image \"%s\" failed" link)
+        nil)))
+
+  (org-link-set-parameters "http"  :image-data-fun #'+org-image-link)
+  (org-link-set-parameters "https" :image-data-fun #'+org-image-link)
+  (org-link-set-parameters "img"   :image-data-fun #'+org-inline-data-image))
 
 
 ;;
@@ -73,7 +95,8 @@
      +org|setup-agenda
      +org|setup-keybinds
      +org|setup-hacks
-     +org|setup-pretty-code))
+     +org|setup-pretty-code
+     +org|setup-custom-links))
 
 (add-hook! 'org-mode-hook
   #'(doom|disable-line-numbers  ; org doesn't really need em
@@ -174,6 +197,48 @@ unfold to point on startup."
     :src_block "#+BEGIN_SRC"
     :src_block_end "#+END_SRC"))
 
+(defun +org|setup-custom-links ()
+  "Set up custom org links."
+  (setq org-link-abbrev-alist
+        '(("github"      . "https://github.com/%s")
+          ("youtube"     . "https://youtube.com/watch?v=%s")
+          ("google"      . "https://google.com/search?q=")
+          ("gimages"     . "https://google.com/images?q=%s")
+          ("gmap"        . "https://maps.google.com/maps?q=%s")
+          ("duckduckgo"  . "https://duckduckgo.com/?q=%s")
+          ("wolfram"     . "https://wolframalpha.com/input/?i=%s")
+          ("doom-repo"   . "https://github.com/hlissner/doom-emacs/%s")))
+
+  (defun +org--relpath (path root)
+    (if (and buffer-file-name (file-in-directory-p buffer-file-name root))
+        (file-relative-name path)
+      path))
+
+  ;; highlight broken links
+  (org-link-set-parameters
+   "file"
+   :face (lambda (path)
+           (if (or (file-remote-p path)
+                   (file-exists-p path))
+               'org-link
+             'error)))
+
+  (eval-when-compile
+    (defmacro def-org-file-link! (key dir)
+      `(org-link-set-parameters
+        ,key
+        :complete (lambda () (+org--relpath (+org-link-read-file ,key ,dir) ,dir))
+        :follow   (lambda (link) (find-file (expand-file-name link ,dir)))
+        :face     (lambda (link)
+                    (if (file-exists-p (expand-file-name link ,dir))
+                        'org-link
+                      'error)))))
+
+  (def-org-file-link! "org" org-directory)
+  (def-org-file-link! "doom" doom-emacs-dir)
+  (def-org-file-link! "doom-docs" doom-docs-dir)
+  (def-org-file-link! "doom-modules" doom-modules-dir))
+
 (defun +org|setup-ui ()
   "Configures the UI for `org-mode'."
   (setq-default
@@ -236,48 +301,7 @@ unfold to point on startup."
                 (face-attribute (or (cadr (assq 'default face-remapping-alist))
                                     'default)
                                 :background nil t))))
-  (add-hook 'doom-load-theme-hook #'+org|update-latex-preview-background-color)
-
-  ;; Custom links
-  (setq org-link-abbrev-alist
-        '(("github"      . "https://github.com/%s")
-          ("youtube"     . "https://youtube.com/watch?v=%s")
-          ("google"      . "https://google.com/search?q=")
-          ("gimages"     . "https://google.com/images?q=%s")
-          ("gmap"        . "https://maps.google.com/maps?q=%s")
-          ("duckduckgo"  . "https://duckduckgo.com/?q=%s")
-          ("wolfram"     . "https://wolframalpha.com/input/?i=%s")
-          ("doom-repo"   . "https://github.com/hlissner/doom-emacs/%s")))
-
-  (defun +org--relpath (path root)
-    (if (and buffer-file-name (file-in-directory-p buffer-file-name root))
-        (file-relative-name path)
-      path))
-
-  ;; highlight broken links
-  (org-link-set-parameters
-   "file"
-   :face (lambda (path)
-           (if (or (file-remote-p path)
-                   (file-exists-p path))
-               'org-link
-             'error)))
-
-  (eval-when-compile
-    (defmacro def-org-file-link! (key dir)
-      `(org-link-set-parameters
-        ,key
-        :complete (lambda () (+org--relpath (+org-link-read-file ,key ,dir) ,dir))
-        :follow   (lambda (link) (find-file (expand-file-name link ,dir)))
-        :face     (lambda (link)
-                    (if (file-exists-p (expand-file-name link ,dir))
-                        'org-link
-                      'error)))))
-
-  (def-org-file-link! "org" org-directory)
-  (def-org-file-link! "doom" doom-emacs-dir)
-  (def-org-file-link! "doom-docs" doom-docs-dir)
-  (def-org-file-link! "doom-modules" doom-modules-dir))
+  (add-hook 'doom-load-theme-hook #'+org|update-latex-preview-background-color))
 
 (defun +org|setup-keybinds ()
   "Sets up org-mode and evil keybindings. Tries to fix the idiosyncrasies

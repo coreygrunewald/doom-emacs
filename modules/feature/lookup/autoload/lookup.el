@@ -87,21 +87,30 @@ properties:
         ((require 'xref nil t)
          (xref-backend-identifier-at-point (xref-find-backend)))))
 
-(defun +lookup--jump-to (prop identifier)
+(defun +lookup--jump-to (prop identifier &optional other-window)
   (cl-loop with origin = (point-marker)
-           for fn in (plist-get (list :definition +lookup-definition-functions
-                                      :references +lookup-references-functions
-                                      :documentation +lookup-documentation-functions
-                                      :file +lookup-file-functions)
-                                prop)
+           for fn
+           in (plist-get (list :definition +lookup-definition-functions
+                               :references +lookup-references-functions
+                               :documentation +lookup-documentation-functions
+                               :file +lookup-file-functions)
+                         prop)
            for cmd = (or (command-remapping fn) fn)
            if (condition-case e
-                  (or (if (commandp cmd)
-                          (call-interactively cmd)
-                        (funcall cmd identifier))
-                      (/= (point-marker) origin))
-                ('error (ignore (message "%s" e))))
-           return it))
+                  (save-window-excursion
+                    (when (or (if (commandp cmd)
+                                  (call-interactively cmd)
+                                (funcall cmd identifier))
+                              (/= (point-marker) origin))
+                      (point-marker)))
+                (error (ignore (message "%s" e))))
+           return
+           (progn
+             (funcall (if other-window
+                          #'pop-to-buffer
+                        #'pop-to-buffer-same-window)
+                      (marker-buffer it))
+             (goto-char it))))
 
 (defun +lookup--file-search (identifier)
   (unless identifier
@@ -134,19 +143,7 @@ reduce false positives.
 This backend prefers \"just working\" over accuracy."
   (when (require 'dumb-jump nil t)
     ;; dumb-jump doesn't tell us if it succeeded or not
-    (let (successful)
-      (cl-letf* ((old-fn (symbol-function 'dumb-jump-get-results))
-                 ((symbol-function 'dumb-jump-get-results)
-                  (lambda (&optional prompt)
-                    (let* ((plist (funcall old-fn prompt))
-                           (results (plist-get plist :results)))
-                      (when (and results (> (length results) 0))
-                        (setq successful t))
-                      plist))))
-        (if other-window
-            (dumb-jump-go-other-window)
-          (dumb-jump-go))
-        successful))))
+    (plist-get (dumb-jump-go) :results)))
 
 (defun +lookup-project-search-backend (identifier)
   "Conducts a simple project text search for IDENTIFIER.
@@ -220,28 +217,29 @@ evil-mode is active."
   (cond ((null identifier) (user-error "Nothing under point"))
 
         ((and +lookup-definition-functions
-              (+lookup--jump-to :definition identifier)))
+              (+lookup--jump-to :definition identifier other-window)))
 
         ((error "Couldn't find the definition of '%s'" identifier))))
 
 ;;;###autoload
-(defun +lookup/references (identifier)
+(defun +lookup/references (identifier &optional other-window)
   "Show a list of usages of IDENTIFIER (defaults to the symbol at point)
 
 Tries each function in `+lookup-references-functions' until one changes the
 point and/or current buffer. Falls back to a naive ripgrep/the_silver_searcher
 search otherwise."
   (interactive
-   (list (+lookup--symbol-or-region)))
+   (list (+lookup--symbol-or-region)
+         current-prefix-arg))
   (cond ((null identifier) (user-error "Nothing under point"))
 
         ((and +lookup-references-functions
-              (+lookup--jump-to :references identifier)))
+              (+lookup--jump-to :references identifier other-window)))
 
         ((error "Couldn't find references of '%s'" identifier))))
 
 ;;;###autoload
-(defun +lookup/documentation (identifier)
+(defun +lookup/documentation (identifier &optional other-window)
   "Show documentation for IDENTIFIER (defaults to symbol at point or selection.
 
 Goes down a list of possible backends:
@@ -250,11 +248,12 @@ Goes down a list of possible backends:
 2. If the +docsets flag is active for :feature lookup, use `+lookup/in-docsets'
 3. Fall back to an online search, with `+lookup/online'"
   (interactive
-   (list (+lookup--symbol-or-region)))
+   (list (+lookup--symbol-or-region)
+         current-prefix-arg))
   (cond ((null identifier) (user-error "Nothing under point"))
 
         ((and +lookup-documentation-functions
-              (+lookup--jump-to :documentation identifier)))
+              (+lookup--jump-to :documentation identifier other-window)))
 
         ((user-error "Couldn't find documentation for '%s'" identifier))))
 

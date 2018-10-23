@@ -7,16 +7,22 @@
     (and (not (eq buffer (current-buffer)))
          (+workspace-contains-buffer-p buffer))))
 
-(defun +ivy*rich-switch-buffer-buffer-name (str)
-  (propertize
-   (ivy-rich-pad str ivy-rich-switch-buffer-name-max-length)
-   'face (cond ((string-match-p "^ *\\*" str)
-                'font-lock-comment-face)
-               ((and buffer-file-truename
-                     (not (file-in-directory-p buffer-file-truename (doom-project-root))))
-                'font-lock-doc-face)
-               (t nil))))
-(advice-add 'ivy-rich-switch-buffer-buffer-name :override #'+ivy*rich-switch-buffer-buffer-name)
+;;;###autoload
+(defun +ivy-rich-buffer-name (candidate)
+  "Display the buffer name.
+
+Displays buffers in other projects in `font-lock-doc-face', and
+temporary/special buffers in `font-lock-comment-face'."
+  (with-current-buffer (get-buffer candidate)
+    (propertize candidate
+     'face (cond ((string-match-p "^ *\\*" candidate)
+                  'font-lock-comment-face)
+                 ((not buffer-file-name) nil)
+                 ((not (file-in-directory-p
+                        buffer-file-name
+                        (or (doom-project-root)
+                            default-directory)))
+                  'font-lock-doc-face)))))
 
 
 ;;
